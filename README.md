@@ -82,6 +82,8 @@ Este módulo actúa como el motor creativo de la aplicación, transformando dato
 
 4 Seguridad:
 
+------------
+
 ## El Flujo de Datos (System Loop)
 La comunicación entre componentes sigue un ciclo cerrado para mantener la integridad de la información:
 
@@ -95,11 +97,13 @@ La comunicación entre componentes sigue un ciclo cerrado para mantener la integ
 
 5 La App presenta el cuento y lo guarda permanentemente en la biblioteca del usuario.
 
-
+------------
 
 **Aviso:**
 
 Esta arquitectura proporciona una visión particular en terminos de los conocimientos basicos presentes en el equipo y se puede ajustar según las necesidades específicas de la aplicación y las competencias adquiridas durante el desarrollo. Es importante considerar que la arquitectura del sistema irá creciendo a medida de los avances. La vision general de la misma y el sistema completo se irá implementando durante el diseño del sistema o mas bien al finalizar el proyecto, debido a lo mencionado anteriormente.
+
+------------
 
 ## Identidad visual
  sistema de diseño de Burbuja es moderno y tecno-regenerativo, utilizando una estética minimalista para evitar la sobrecarga cognitiva.
@@ -110,6 +114,8 @@ Esta arquitectura proporciona una visión particular en terminos de los conocimi
  #6A5CFF
  #1F2A37
  #EAEAF0
+
+ ------------
  
  ## Contexto Académico
  
@@ -120,30 +126,29 @@ Esta arquitectura proporciona una visión particular en terminos de los conocimi
  Autor: Wilson Antonio Cabrera.
  
  Tutor: Ariel Alan Rivadulla
+
+ ------------
  
 ## Enlaces de interes
 
-- Mockups: [Figma](https://www.figma.com/file/Mk79vOIMddFzCAAQutru4Z/Mockup-ArtFlow?type=design&t=I7Lh8mMQmfV63vsz-6)
-- Proceso del Mockup: [Reel](https://www.instagram.com/p/CzpA0JVuP3U/)
+- Mockups: [Figma](https://www.figma.com/design/R02dsS0jttKVTsBIC2m9FO/flujo-de-pantalla--BURBUJA-?node-id=64-64&t=1JzGkZrKTeG1ibhD-1)
+- Drive del proyecto: [Drive](https://drive.google.com/drive/folders/10YzvB7wEyixrEVSRyOrqgjHdvAm70NT6?usp=sharing)
 - (MAP): [MIRO](https://miro.com/app/board/uXjVNWA5kUA=/?share_link_id=327497059956)
 
 ------------
 
-## Colaboradores
-- [@ppedersoli](https://github.com/ppedersoli)
+<!-- ## Colaboradores
+- [@ppedersoli](https://github.com/ppedersoli)-->
   
 ------------
 
   ## Responsables
-- Análisis General: Cabrera Wilson Antonio 
-- UX/UI: Cabrera Wilson Antonio
-- FrontEnd: Miotto González Lautaro, 
-- Backend: Waidatt Samira , Flores Kiru Brian Juan
+- Análisis General: Wilson Antonio Cabrera.
+- UX/UI: Wilson Antonio Cabrera.
+- FrontEnd: FrontEnd: Wilson Antonio Cabrera.
+- Backend: Wilson Antonio Cabrera.
 
 ------------
 
-## Autores
+## Autor
 - [@Wilson-Cabrera](https://github.com/Wilson-Cabrera)
-- Miotto Lautaro Gonzalez
-- Flores Juan Kiru
-- Waidatt Samira
