@@ -27,18 +27,24 @@ Gracias a su enfoque en el diseño multimedia, tecno y regenerativo, Burbuja no 
 ------------
 ### Objetivos Específicos de la Aplicación
 
-La aplicación tiene como objetivo conectar a diseñadores multimedia de todo el mundo, proporcionándoles un espacio dedicado para compartir inspiraciones a través de reels creativos. Busca fomentar la colaboración, la inspiración mutua y la promoción del talento creativo en la comunidad de diseño multimedia.
-ArtFlow es una red social diseñada exclusivamente para la comunidad del diseño multimedia. La aplicación ofrece un lugar dinámico y vibrante donde los diseñadores pueden compartir sus últimas creaciones, ideas innovadoras y procesos creativos a través de reels cortos y visualmente impactantes.
+- Diseñar una interfaz de usuario para la aplicación que sea atractiva e intuitiva para el público joven.
+
+- Implementar un sistema que permita el escaneo de objetos y lugares a través de la cámara del dispositivo móvil.
+
+- Integrar un motor de inteligencia artificial con la capacidad de generar historias personalizadas basadas en los elementos escaneados por el usuario.
+
+- Diseñar y desarrollar una base de datos eficiente para administrar las cuentas de usuario y asegurar el almacenamiento de los cuentos e historias generadas.
 
 **Características Principales:**
-> Contenido creativo: Los usuarios pueden crear publicar imagenes y reeles breves que muestran su trabajo, procesos creativos, y piezas de inspiración. La función de reels permite una presentación visual y atractiva de proyectos multimedia.
+> Captura de entorno: permite a los usuarios utilizar la cámara integrada para fotografiar objetos o lugares cotidianos (como libros, paisajes o llaves) que servirán como el punto de partida de la historia.
 
-> Facilidad de Registro y autenticación: Brindarles a los diferentes usuarios un proceso de registro sencillo y seguro, para poder acceder a sus cuentas con un nombre de usuario o correo electrónico y una contraseña.
+> Generación de cuentos únicos: utiliza un sistema de inteligencia artificial generativa para construir narraciones instantáneas y personalizadas basadas en los atributos visuales del objeto capturado.
 
-> Conectando Creatividad Global: ofrecer a los usuarios una red social insipirativa de diseñadores multimediales a otros diseñadores multimedia de distintos lugares del mundo, logrando integrar diversos conocimientos, técnicas, ideas y proyectos.
+> Personalización mediante etiquetas: el usuario puede seleccionar variables predefinidas para definir el género (misterio, aventura, fantasía, etc.), el tipo de narrador (primera o tercera persona), el tiempo narrativo y el nivel de complejidad del lenguaje.
 
-> Adaptabilidad y Eficiencia: Ofrecer una interfaz fácilmente adaptable para cualquier usuario, siendo una red social donde tendrá diversos atajos que permitirse optimizar el tiempo del
-usuario.
+> Biblioteca personal ("Mis burbujas"): incluye una sección donde se almacenan y organizan todos los cuentos creados para su lectura posterior.
+
+> Gestión en la nube: utiliza Firebase para la autenticación de usuarios, la sincronización de datos y el almacenamiento seguro de las fotos y relatos generados. 
 
 ------------
 
