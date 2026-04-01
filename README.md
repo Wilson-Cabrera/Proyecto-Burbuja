@@ -11,7 +11,7 @@ Diseño y desarrollo de una aplicación móvil para la generación de cuentos pe
 - [Ejemplo de uso](#Ejemplo-de-uso)
 - [Estructura aplicación (MAP) para ArtFlow](#Estructura-aplicación-(MAP)-para-ArtFlow)
 - [Arquitectura del Sistema](#Arquitectura-del-Sistema)
-- [Historias de usuario](#Historias-de-usuario)
+- [Identidad visual](#Identidad-visual)
 - [Enlaces de interes](#Enlaces-de-interes)
 - [Colaboradores](#Colaboradores)
 - [Responsables](#Responsables)
@@ -83,10 +83,15 @@ Este módulo actúa como el motor creativo de la aplicación, transformando dato
 
 ## El Flujo de Datos (System Loop)
 La comunicación entre componentes sigue un ciclo cerrado para mantener la integridad de la información:
+
 1 La App captura la imagen y las preferencias del usuario.
+
 2 Firebase almacena la captura y sincroniza los metadatos.
+
 3 La App envía el prompt estructurado a la API de IA.
+
 4 La IA genera el contenido y lo devuelve a la App en formato JSON.
+
 5 La App presenta el cuento y lo guarda permanentemente en la biblioteca del usuario.
 
 
@@ -95,49 +100,16 @@ La comunicación entre componentes sigue un ciclo cerrado para mantener la integ
 
 Esta arquitectura proporciona una visión particular en terminos de los conocimientos basicos presentes en el equipo y se puede ajustar según las necesidades específicas de la aplicación y las competencias adquiridas durante el desarrollo. Es importante considerar que la arquitectura del sistema irá creciendo a medida de los avances. La vision general de la misma y el sistema completo se irá implementando durante el diseño del sistema o mas bien al finalizar el proyecto, debido a lo mencionado anteriormente.
 
-## Historias de usuario
-Historia de usuario  | --
-------------- | -------------
-ID:  | 1
-Nombre de la historia  |  Inicio de Sesión en la Aplicación
-Programador responsable | Flores, Kiru
-Descripción | Como usuario de la aplicación, quiero tener la capacidad de iniciar sesión de manera segura y conveniente para acceder a mis datos y personalizar mi experiencia.
-Validación | El usuario se asegura de que los datos ingresados como los nombres, dirección de correo electrónico o contraseñas sean correctos y cumplan con ciertos estándares.
-Criterios | El usuario tendrá dos campos para llenar, el primero con su Email y el segundo con su contraseña, después tendrá que apretar el botón de iniciar sesión para ingresar. O en su defecto si el usuario no cuenta con una cuenta tendrá un enlace que le llevara a una sección para poder registrarse.
+## Identidad visual
+ sistema de diseño de Burbuja es moderno y tecno-regenerativo, utilizando una estética minimalista para evitar la sobrecarga cognitiva.
 
-
-Historia de usuario  | --
-------------- | -------------
-ID:  | 2
-Nombre de la historia  |  Registro de Usuario
-Programador responsable | Miotto, Lautaro
-Descripción | Como usuario diseñador multimedia responsable quiero registrarme con mi Email, nombre, nombre de usuario y contraseña.
-Validación | El usuario responsable debe generar una cuenta por lo que deberá poner los datos requeridos por el sistema.
-Criterios | El usuario deberá llenar cuatro campos de texto, E.mail, nombre completo, nombre de usuario y contraseña. En segundo lugar deberá hacer click en el botón (Registrate). O como usuario de Google o Facebook podrás registrarte con la cuenta que tengas existentes.
-
-
-Historia de usuario  | --
-------------- | -------------
-ID:  | 3
-Nombre de la historia  |  Visualización de la feed tendencias
-Programador responsable | Cabrera, Wilson
-Descripción | Como usuario responsable, quiero ser capaz de poder ver las publicaciones que están en tendencias para que pueda ver las inspiraciones de la comunidad.
-Validación | El usuario responsable al acceder mediante la validación debe explorar las publicaciones.
-Criterios | La feed muestra las publicaciones más recientes y populares. Se le permite al usuario hacer click en cada post para acceder a otra sección de la publicación donde podrá ver el posteo y tener otras opciones de interacción. Además tendrá un menú en la parte inferior con funcionalidades como refrescar, guardar, crear y perfil. En la parte superior tendrá un buscador en la cual puede escribir palabras específicas para una búsqueda personalizada.
-
-
-
-Historia de usuario  | --
-------------- | -------------
-ID:  | 4
-Nombre de la historia  |  Visualización de video  Reel con interacción.
-Programador responsable | Waidatt, Samira.
-Descripción | Como usuario de la aplicación, quiero poder acceder a una sección que muestre un video Reel. Y tambien ser capaz de interactuar con el contenido.
-Validación | El usuario responsable debe visualizar los videos reel, nombre de usuario y descripción en pantalla completa e interactuar con dicho video. También debe abrir la galería si desea subir un reel haciendo click en el icono "+".
-Criterios |Esta sección presentará contenido multimedia de manera clara y atractiva. El usuario puede reproducir el video reel y manejarlo mediante un control de reproducción estándar. Para acceder a los comentarios debe pulsar en un icono de nube, para guardar el video pulsar en un icono de bandera y para dar like a un icono de corazón. En la parte superior tendrá un menú donde podrá "Ir a la sección tendencias, guardados, crear y perfil"
-
-------------
-
+ Paleta de colores 
+ #F7F9FC
+ #7BCBFF
+ #6A5CFF
+ #1F2A37
+ #EAEAF0
+ 
 ## Enlaces de interes
 
 - Mockups: [Figma](https://www.figma.com/file/Mk79vOIMddFzCAAQutru4Z/Mockup-ArtFlow?type=design&t=I7Lh8mMQmfV63vsz-6)
