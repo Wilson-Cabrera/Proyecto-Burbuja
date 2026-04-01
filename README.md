@@ -12,6 +12,7 @@ Diseño y desarrollo de una aplicación móvil para la generación de cuentos pe
 - [Estructura aplicación (MAP) para ArtFlow](#Estructura-aplicación-(MAP)-para-ArtFlow)
 - [Arquitectura del Sistema](#Arquitectura-del-Sistema)
 - [Identidad visual](#Identidad-visual)
+- [Contexto Académico](#Contexto-Académico)
 - [Enlaces de interes](#Enlaces-de-interes)
 - [Colaboradores](#Colaboradores)
 - [Responsables](#Responsables)
@@ -109,6 +110,16 @@ Esta arquitectura proporciona una visión particular en terminos de los conocimi
  #6A5CFF
  #1F2A37
  #EAEAF0
+ 
+ ## Contexto Académico
+ 
+ Institución: Universidad Nacional de La Rioja (UNLAR).
+ 
+ Departamento: Ciencias Exactas, Físicas y Naturales.
+ 
+ Autor: Wilson Antonio Cabrera.
+ 
+ Tutor: Ariel Alan Rivadulla
  
 ## Enlaces de interes
 
