@@ -131,7 +131,9 @@ Esta arquitectura proporciona una visión particular en terminos de los conocimi
  
 ## Enlaces de interes
 
-- Mockups: [Figma](https://www.figma.com/design/R02dsS0jttKVTsBIC2m9FO/flujo-de-pantalla--BURBUJA-?node-id=64-64&t=1JzGkZrKTeG1ibhD-1)
+- Wireframing: [Figma](https://www.figma.com/design/R02dsS0jttKVTsBIC2m9FO/flujo-de-pantalla--BURBUJA-?node-id=0-1&t=AVNeLDzzktv3kkiH-1)
+- UX UI: [Figma](https://www.figma.com/design/R02dsS0jttKVTsBIC2m9FO/flujo-de-pantalla--BURBUJA-?node-id=64-64&t=1JzGkZrKTeG1ibhD-1)
+- Wire flow: [Figma](https://www.figma.com/design/R02dsS0jttKVTsBIC2m9FO/flujo-de-pantalla--BURBUJA-?node-id=146-295&t=AVNeLDzzktv3kkiH-1)
 - Drive del proyecto: [Drive](https://drive.google.com/drive/folders/10YzvB7wEyixrEVSRyOrqgjHdvAm70NT6?usp=sharing)
 - (MAP): [MIRO](https://miro.com/app/board/uXjVNWA5kUA=/?share_link_id=327497059956)
 
