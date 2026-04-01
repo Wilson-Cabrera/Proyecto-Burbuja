@@ -49,7 +49,7 @@ Gracias a su enfoque en el diseño multimedia, tecno y regenerativo, Burbuja no 
 ------------
 
 ## Ejemplo de uso
-Imagina a un diseñador de animación que ha trabajado en un proyecto innovador. Utiliza ArtFlow para compartir un reel que destaca los momentos clave del proceso de animación, desde bocetos iniciales hasta el producto final. Otros diseñadores multimedia pueden descubrir este reel, dejar comentarios elogiosos y tal vez expresar interés en colaboraciones futuras. La aplicación se convierte en un lugar dinámico donde la comunidad de diseñadores se conecta, comparte ideas y se inspira mutuamente.
+El proceso de uso de Burbuja se inicia cuando el usuario activa la cámara integrada de la aplicación para capturar una fotografía de cualquier objeto, espacio o situación que servirá como base narrativa. Tras realizar la captura, el usuario selecciona etiquetas predefinidas que funcionan como variables de personalización, permitiendo definir el género del cuento, la voz del narrador, el tiempo narrativo y el nivel de complejidad del lenguaje. Estas opciones guían una solicitud estructurada que se envía a una API de inteligencia artificial, la cual procesa la información para devolver un relato único y adaptado a las decisiones tomadas. Finalmente, el cuento generado se almacena automáticamente en una biblioteca personal denominada "Mis burbujas" mediante la infraestructura de Firebase, permitiendo su lectura posterior y la posibilidad de gestionar todas las historias creadas
 
 ------------
 ## Estructura aplicación (MAP) para ArtFlow
