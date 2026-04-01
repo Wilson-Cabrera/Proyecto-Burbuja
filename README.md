@@ -1,7 +1,7 @@
 ### :rocket:Proyecto-Burbuja:rocket:
 Diseño y desarrollo de una aplicación móvil para la generación de cuentos personalizados mediante inteligencia artificial.
 
-[![artflow-portada.png](https://i.postimg.cc/RhFvfM13/artflow-portada.png)](https://postimg.cc/sQkFCCNy)
+[![banner.png](https://i.postimg.cc/vZWsCpTx/banner.png)](https://postimg.cc/5XNTCKwf)
 
 
 ### Indice
@@ -21,7 +21,8 @@ Diseño y desarrollo de una aplicación móvil para la generación de cuentos pe
 
 ------------
 ### Introducción
-“ArtFlow” es una aplicación para dispositivos móviles que se trata de agrupar distintos campos de la multimedia con la comunidad a través de la interfaz donde se le dará una gran visibilidad a trabajos, siendo una gran fuente potenciadora de inspiración a los usuarios interesados en desenvolverse en Artflow. Gracias a su estructura dinámica, los usuarios podrán categorizar sus trabajos y subir en diversos recursos a la plataforma como fotografías, animaciones, documentales, Foleys, podcasts, cortometrajes, desarrollo de personajes, diseños de todo tipo, entre otros. La particularidad de esta red social, es que el usuario podrá compartir todo sus trabajos sin límites, con la ventaja que podrá potenciarlo con sus pares, siendo para el diseñador Multimedial amateur un gran potenciador de conocimientos, recursos y grandes herramientas para sus propias creaciones.
+Burbuja es una aplicación para dispositivos móviles diseñada para transformar la lectura pasiva en una experiencia creativa y dinámica. A través de una interfaz de vanguardia, la plataforma permite a jovenes de entre 16 y 21 años sumergirse en historias únicas generadas por Inteligencia Artificial, adaptadas a sus propios intereses y elecciones.
+Gracias a su enfoque en el diseño multimedia, tecno y regenerativo, Burbuja no solo entretiene, sino que actúa como un motor de imaginación, desafiando el consumo de contenido lineal y fomentando una formación educativa activa.
 
 ------------
 ### Objetivos Específicos de la Aplicación
