@@ -60,19 +60,34 @@ El proceso de uso de Burbuja se inicia cuando el usuario activa la cámara integ
 
 ## Arquitectura del Sistema
 
-1 Cliente (Frontend):
-- plataforma: Desarrollo Android Studio
-- Framework de IU: A definir
+1 Capa de Cliente (Frontend Nativo):
+El desarrollo se realiza de forma nativa para garantizar la máxima compatibilidad y rendimiento con el sistema operativo Android
+- Entorno de Desarrollo: Android Studio como IDE principal.
+- Lenguaje de Programación: Kotlin, seleccionado por su eficiencia, seguridad y escalabilidad
+- Gestión de Interfaz: Basada en estándares de diseño minimalista prototipados en Figma para reducir la carga cognitiva.
+- Salida de Producción: Generación de un archivo APK para facilitar la instalación directa y distribución gratuita inicial.
 
-2 Servidor (Backend):
-- Lenguaje de Programación: Java
-- Base de datos: SQLite
+2 Capa de Backend (Infraestructura Cloud):
+Se implementa Firebase utilizando el Spark Plan (gratuito) para centralizar la lógica de negocio y los datos sin costos operativos iniciales.
+- Autenticación: Gestión segura de perfiles de usuario y sesiones.
+- Firebase Storage: Almacenamiento eficiente de las fotografías capturadas por el usuario.
+- Base de Datos: Gestión en tiempo real de las colecciones de cuentos, configuraciones de usuario y etiquetas narrativas.
 
-3 Autenticación y Autorización:
+3 Capa de Procesamiento (Inteligencia Artificial):
+Este módulo actúa como el motor creativo de la aplicación, transformando datos visuales y variables en texto literario.
+- Integración de API: Conexión con servicios de IA de vanguardia Gemini.
+- Ingeniería de Prompts: La app organiza automáticamente los datos de la foto y las etiquetas seleccionadas en una solicitud estructurada, eliminando la necesidad de que el usuario redacte instrucciones complejas.
+- Intercambio de Datos: La API procesa la información y retorna el relato en formato JSON para ser interpretado y presentado por la aplicación.
 
-4 Almacenamiento en la Nube:
+4 Seguridad:
 
-5 Seguridad:
+## El Flujo de Datos (System Loop)
+La comunicación entre componentes sigue un ciclo cerrado para mantener la integridad de la información:
+1 La App captura la imagen y las preferencias del usuario.
+2 Firebase almacena la captura y sincroniza los metadatos.
+3 La App envía el prompt estructurado a la API de IA.
+4 La IA genera el contenido y lo devuelve a la App en formato JSON.
+5 La App presenta el cuento y lo guarda permanentemente en la biblioteca del usuario.
 
 
 
