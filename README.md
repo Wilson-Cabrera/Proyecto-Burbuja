@@ -106,7 +106,7 @@ Esta arquitectura proporciona una visión particular en terminos de los conocimi
 ------------
 
 ## Identidad visual
- sistema de diseño de Burbuja es moderno y tecno-regenerativo, utilizando una estética minimalista para evitar la sobrecarga cognitiva.
+El sistema de diseño de Burbuja es moderno y tecno-regenerativo, utilizando una estética minimalista para evitar la sobrecarga cognitiva.
 
  Paleta de colores 
  #F7F9FC
