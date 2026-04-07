@@ -55,7 +55,7 @@ El proceso de uso de Burbuja se inicia cuando el usuario activa la cámara integ
 ------------
 ## Estructura aplicación (MAP) para ArtFlow
 
-<a href='https://i.postimg.cc/R0f5j7Jt/map.png' target='_blank'><img src='https://i.postimg.cc/R0f5j7Jt/map.png' border='0' alt='imagen-2023-11-16-132147246'/></a>
+<a href='https://i.postimg.cc/L6w2mLVv/map2-1.png' target='_blank'><img src='https://i.postimg.cc/L6w2mLVv/map2-1.png' border='0' alt='imagen-2023-11-16-132147246'/></a>
 
 -----------
 
