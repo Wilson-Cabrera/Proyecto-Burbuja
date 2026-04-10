@@ -53,7 +53,7 @@ Gracias a su enfoque en el diseño multimedia, tecno y regenerativo, Burbuja no 
 El proceso de uso de Burbuja se inicia cuando el usuario activa la cámara integrada de la aplicación para capturar una fotografía de cualquier objeto, espacio o situación que servirá como base narrativa. Tras realizar la captura, el usuario selecciona etiquetas predefinidas que funcionan como variables de personalización, permitiendo definir el género del cuento, la voz del narrador, el tiempo narrativo y el nivel de complejidad del lenguaje. Estas opciones guían una solicitud estructurada que se envía a una API de inteligencia artificial, la cual procesa la información para devolver un relato único y adaptado a las decisiones tomadas. Finalmente, el cuento generado se almacena automáticamente en una biblioteca personal denominada "Mis burbujas" mediante la infraestructura de Firebase, permitiendo su lectura posterior y la posibilidad de gestionar todas las historias creadas
 
 ------------
-## Estructura aplicación (MAP) para ArtFlow
+## Estructura aplicación (MAP) para Burbuja
 
 <a href='https://i.postimg.cc/L6w2mLVv/map2-1.png' target='_blank'><img src='https://i.postimg.cc/L6w2mLVv/map2-1.png' border='0' alt='imagen-2023-11-16-132147246'/></a>
 
