@@ -1,10 +1,16 @@
 package com.wilson.burbuja
 
+import android.net.Uri
+import android.util.Log
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cached
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,82 +33,98 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.io.File
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
-fun CameraScreen(onBackClicked: () -> Unit = {}) {
+fun CameraScreen(
+    navController: NavController,
+    onBackClicked: () -> Unit = {}
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
-
-    // Estado para ver el porcentaje de zoom en pantalla
     var zoomPercentage by remember { mutableFloatStateOf(0f) }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
-    val alphaAnimada by infiniteTransition.animateFloat(
-        initialValue = 0.3f, targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(animation = tween(1200), repeatMode = RepeatMode.Reverse),
-        label = "AlphaPulse"
+    // ESTADO PARA EL FLASH VISUAL
+    var mostrarFlash by remember { mutableStateOf(false) }
+
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+
+    // LANZADOR DE GALERÍA
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let {
+            val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
+            navController.navigate("preview_screen/$encodedUri")
+        }
+    }
+
+    val alphaVisor by rememberInfiniteTransition(label = "").animateFloat(
+        initialValue = 0.4f, targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(animation = tween(1500), repeatMode = RepeatMode.Reverse),
+        label = ""
     )
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // CAPA 0: Cámara con Zoom y Enfoque integrados
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx).apply {
                     scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
-
-                // 1. GESTOR DE ZOOM (Pinch/Pellizco)
-                val scaleGestureDetector = ScaleGestureDetector(ctx,
-                    object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                        override fun onScale(detector: ScaleGestureDetector): Boolean {
-                            val currentZoom = zoomPercentage
-                            val delta = detector.scaleFactor - 1f
-                            // Actualizamos el zoom lineal (0.0 a 1.0)
-                            val newZoom = (currentZoom + delta).coerceIn(0f, 1f)
-                            zoomPercentage = newZoom
-                            cameraControl?.setLinearZoom(newZoom)
-                            return true
-                        }
+                val detector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScale(d: ScaleGestureDetector): Boolean {
+                        zoomPercentage = (zoomPercentage + (d.scaleFactor - 1f)).coerceIn(0f, 1f)
+                        cameraControl?.setLinearZoom(zoomPercentage)
+                        return true
                     }
-                )
-
+                })
                 cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
+                    val provider = cameraProviderFuture.get()
                     val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
                     try {
-                        cameraProvider.unbindAll()
-                        val camera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview
+                        provider.unbindAll()
+                        val camera = provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            imageCapture
                         )
                         cameraControl = camera.cameraControl
-                    } catch (e: Exception) { e.printStackTrace() }
+                    } catch (e: Exception) { Log.e("BURBUJA", "Error: ${e.message}") }
                 }, ContextCompat.getMainExecutor(ctx))
 
-                // 2. GESTOR DE TOQUES (Enfoque + Zoom)
-                previewView.setOnTouchListener { view, event ->
-                    // Le avisamos al detector de zoom que revise el evento
-                    scaleGestureDetector.onTouchEvent(event)
-
-                    // Si es un solo toque (y no zoom), enfocamos
-                    if (event.action == MotionEvent.ACTION_DOWN && event.pointerCount == 1) {
-                        val factory = previewView.meteringPointFactory
-                        val point = factory.createPoint(event.x, event.y)
-                        val action = FocusMeteringAction.Builder(point).build()
-                        focusPoint = Offset(event.x, event.y)
-                        cameraControl?.startFocusAndMetering(action)
+                previewView.setOnTouchListener { v, e ->
+                    detector.onTouchEvent(e)
+                    if (e.action == MotionEvent.ACTION_DOWN && e.pointerCount == 1) {
+                        v.performClick()
+                        focusPoint = Offset(e.x, e.y)
+                        cameraControl?.startFocusAndMetering(
+                            FocusMeteringAction.Builder(
+                                previewView.meteringPointFactory.createPoint(e.x, e.y)
+                            ).build()
+                        )
                     }
                     true
                 }
@@ -110,51 +133,53 @@ fun CameraScreen(onBackClicked: () -> Unit = {}) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // CAPA 1: Aro de enfoque
-        focusPoint?.let { offset ->
-            FocusRing(offset) { focusPoint = null }
+        focusPoint?.let { FocusRing(it) { focusPoint = null } }
+        VisorMinimalistaOverlay(alphaVisor)
+
+        // CAPA DE FLASH VISUAL (Feedback Multimedia)
+        AnimatedVisibility(
+            visible = mostrarFlash,
+            enter = fadeIn(animationSpec = tween(50)),
+            exit = fadeOut(animationSpec = tween(150))
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White))
         }
 
-        // CAPA 2: Visor animado
-        VisorMinimalistaOverlay(alphaVisor = alphaAnimada)
-
-        // --- INDICADOR DE ZOOM (Solo aparece si hay zoom activo) ---
-        if (zoomPercentage > 0.05f) {
-            Text(
-                text = "ZOOM: ${(zoomPercentage * 100).toInt()}%",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(bottom = 180.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
-        }
-
-        // CAPA 3: Interfaz Figma
         Column(modifier = Modifier.fillMaxSize()) {
-            CameraTopBar(onBackClicked = onBackClicked)
+            CameraTopBar(onBackClicked)
             Spacer(modifier = Modifier.weight(1f))
-            CameraBottomControls()
+            CameraBottomControls(
+                onCaptureClick = {
+                    scope.launch {
+                        mostrarFlash = true
+                        delay(100)
+                        mostrarFlash = false
+                        tomarFotoTemporal(context, imageCapture) { uri ->
+                            val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
+                            navController.navigate("preview_screen/$encodedUri")
+                        }
+                    }
+                },
+                onGalleryClick = {
+                    galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+            )
         }
     }
 }
 
-// (Mantené el resto de las funciones: FocusRing, VisorMinimalistaOverlay, etc., igual que antes)
+// --- FUNCIONES DE SOPORTE (LAS QUE FALTABAN) ---
 
 @Composable
 fun FocusRing(offset: Offset, onFinished: () -> Unit) {
     val scale = remember { Animatable(1.5f) }
     val alpha = remember { Animatable(1f) }
-
     LaunchedEffect(Unit) {
         scale.animateTo(1f, animationSpec = tween(300))
         delay(600)
         alpha.animateTo(0f, animationSpec = tween(300))
         onFinished()
     }
-
     Canvas(modifier = Modifier.fillMaxSize()) {
         drawCircle(
             color = Color(0xFF7ACAFF),
@@ -179,47 +204,24 @@ fun VisorMinimalistaOverlay(alphaVisor: Float) {
         val topOffset = 100.dp.toPx()
         val bottomOffset = 150.dp.toPx()
 
-        // Superior Izquierda
         drawArc(
-            color = colorVisor,
-            startAngle = 180f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(padding, padding + topOffset),
-            size = cornerSize,
+            color = colorVisor, startAngle = 180f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(padding, padding + topOffset), size = cornerSize,
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
-
-        // Superior Derecha
         drawArc(
-            color = colorVisor,
-            startAngle = 270f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(sizeW - padding - arcSize, padding + topOffset),
-            size = cornerSize,
+            color = colorVisor, startAngle = 270f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(sizeW - padding - arcSize, padding + topOffset), size = cornerSize,
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
-
-        // Inferior Izquierda
         drawArc(
-            color = colorVisor,
-            startAngle = 90f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(padding, sizeH - padding - arcSize - bottomOffset),
-            size = cornerSize,
+            color = colorVisor, startAngle = 90f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(padding, sizeH - padding - arcSize - bottomOffset), size = cornerSize,
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
-
-        // Inferior Derecha
         drawArc(
-            color = colorVisor,
-            startAngle = 0f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(sizeW - padding - arcSize, sizeH - padding - arcSize - bottomOffset),
-            size = cornerSize,
+            color = colorVisor, startAngle = 0f, sweepAngle = 90f, useCenter = false,
+            topLeft = Offset(sizeW - padding - arcSize, sizeH - padding - arcSize - bottomOffset), size = cornerSize,
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
     }
@@ -236,25 +238,51 @@ fun CameraTopBar(onBackClicked: () -> Unit) {
         }
         Text(
             text = "¿Y si esto fuera un cuento?",
-            color = Color.White,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
+            color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).padding(end = 48.dp)
         )
     }
 }
 
 @Composable
-fun CameraBottomControls() {
+fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp, start = 32.dp, end = 32.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(50.dp).border(1.dp, Color.White, CircleShape).clip(CircleShape).background(Color.DarkGray))
-        Box(modifier = Modifier.size(80.dp).border(4.dp, Color.White, CircleShape).padding(6.dp).clip(CircleShape).background(Color(0xFFD25450)).clickable { /* Click! */ })
-        Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.size(50.dp).border(1.dp, Color.White, CircleShape).clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.1f)).clickable { onGalleryClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color.White)
+        }
+
+        Box(
+            modifier = Modifier.size(80.dp).border(4.dp, Color.White, CircleShape).padding(6.dp)
+                .clip(CircleShape).background(Color(0xFFD25450)).clickable { onCaptureClick() }
+        )
+
+        Box(
+            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(Icons.Default.Cached, contentDescription = null, tint = Color.White)
         }
     }
+}
+
+fun tomarFotoTemporal(context: android.content.Context, imageCapture: ImageCapture, onResult: (Uri) -> Unit) {
+    val photoFile = File(context.cacheDir, "temp_burbuja_${System.currentTimeMillis()}.jpg")
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+    imageCapture.takePicture(
+        outputOptions, ContextCompat.getMainExecutor(context),
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                onResult(outputFileResults.savedUri ?: Uri.fromFile(photoFile))
+            }
+            override fun onError(e: ImageCaptureException) { Log.e("BURBUJA", "Error: ${e.message}") }
+        }
+    )
 }
