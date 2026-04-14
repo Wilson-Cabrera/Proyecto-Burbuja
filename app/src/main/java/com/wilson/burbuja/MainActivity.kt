@@ -1,8 +1,12 @@
 package com.wilson.burbuja
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,9 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,9 +42,22 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+
+    // --- LÓGICA DE PERMISOS ---
+    var tienePermiso by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { concedido -> tienePermiso = concedido }
+    )
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37), // Fondo oscuro tecno
+        containerColor = Color(0xFF1F2A37),
         bottomBar = {
             NavegacionLiteral(navController = navController)
         }
@@ -47,16 +67,30 @@ fun MainScreen() {
             startDestination = "inicio",
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable("inicio") { PantallaInicio() }
+            composable("inicio") {
+                PantallaInicio(
+                    onAbrirCamara = {
+                        if (tienePermiso) {
+                            navController.navigate("camara")
+                        } else {
+                            launcher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
+                )
+            }
             composable("galeria") { PantallaGaleria() }
             composable("guardados") { PantallaGuardados() }
+
+            // --- NUEVA RUTA DE CÁMARA ---
+            composable("camara") {
+                CameraScreen() // Llamamos a tu archivo CameraScreen.kt
+            }
         }
     }
 }
 
-// --- AQUÍ ESTÁ EL TRUCO: LA PANTALLA DEBE LLAMAR AL BOTÓN ---
 @Composable
-fun PantallaInicio() {
+fun PantallaInicio(onAbrirCamara: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,10 +108,7 @@ fun PantallaInicio() {
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // LLAMADA AL BOTÓN (Si esto no está, el botón no aparece)
-        BotonCamaraPrincipal(onClick = {
-            /* Lógica de cámara próximamente */
-        })
+        BotonCamaraPrincipal(onClick = onAbrirCamara)
     }
 }
 
@@ -89,28 +120,16 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
             .fillMaxWidth()
             .height(45.dp),
         shape = CircleShape,
-        border = BorderStroke(2.dp, Color(0xFF7ACAFF)), // Tu celeste tecno
-        // Forzamos el contentColor a blanco aquí también por seguridad
+        border = BorderStroke(2.dp, Color(0xFF7ACAFF)),
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = Color.White,
             containerColor = Color.Transparent
         )
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center // Asegura que el grupo esté centrado
-        ) {
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                contentDescription = null,
-                tint = Color.White // <--- Forzamos el icono a blanco
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Abrir la cámara",
-                fontSize = 16.sp,
-                color = Color.White // <--- Forzamos el texto a blanco
-            )
+            Text(text = "Abrir la cámara", fontSize = 16.sp, color = Color.White)
         }
     }
 }
@@ -128,3 +147,5 @@ fun PantallaGuardados() {
         Text(text = "Historias favoritas", color = Color.White)
     }
 }
+
+// (Tus otras pantallas se mantienen igual abajo...)
