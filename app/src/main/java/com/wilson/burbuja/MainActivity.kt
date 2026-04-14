@@ -81,9 +81,13 @@ fun MainScreen() {
             composable("galeria") { PantallaGaleria() }
             composable("guardados") { PantallaGuardados() }
 
-            // --- NUEVA RUTA DE CÁMARA ---
+// --- NUEVA RUTA DE CÁMARA ACTUALIZADA ---
             composable("camara") {
-                CameraScreen() // Llamamos a tu archivo CameraScreen.kt
+                CameraScreen(
+                    onBackClicked = {
+                        navController.popBackStack() // Esta es la forma Pro de "volver atrás" en navegación
+                    }
+                )
             }
         }
     }
