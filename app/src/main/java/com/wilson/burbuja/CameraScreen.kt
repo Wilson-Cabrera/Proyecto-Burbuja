@@ -29,10 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -60,14 +62,13 @@ fun CameraScreen(
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
 
-    // --- ESTADOS ---
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var zoomPercentage by remember { mutableFloatStateOf(0f) }
     var mostrarIndicadorZoom by remember { mutableStateOf(false) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
-    var mostrarFlashVisual by remember { mutableStateOf(false) }
 
-    // CREAMOS EL PREVIEW Y EL IMAGE CAPTURE UNA SOLA VEZ
+    var triggerScanner by remember { mutableStateOf(false) }
+
     val preview = remember { Preview.Builder().build() }
     val imageCapture = remember {
         ImageCapture.Builder()
@@ -76,27 +77,15 @@ fun CameraScreen(
             .build()
     }
 
-    // Efecto para re-vincular la cámara cuando cambie el lente
     LaunchedEffect(lensFacing, flashMode) {
         val cameraProvider = cameraProviderFuture.get()
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(lensFacing)
-            .build()
-
+        val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
         imageCapture.flashMode = flashMode
-
         try {
             cameraProvider.unbindAll()
-            val camera = cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                cameraSelector,
-                preview,
-                imageCapture
-            )
+            val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
             cameraControl = camera.cameraControl
-        } catch (e: Exception) {
-            Log.e("BURBUJA", "Error al vincular: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e("BURBUJA", "Error: ${e.message}") }
     }
 
     LaunchedEffect(zoomPercentage) {
@@ -118,8 +107,7 @@ fun CameraScreen(
 
     val alphaVisor by rememberInfiniteTransition(label = "").animateFloat(
         initialValue = 0.4f, targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(animation = tween(1500), repeatMode = RepeatMode.Reverse),
-        label = ""
+        animationSpec = infiniteRepeatable(animation = tween(1500), repeatMode = RepeatMode.Reverse), label = ""
     )
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -127,9 +115,7 @@ fun CameraScreen(
             factory = { ctx ->
                 PreviewView(ctx).apply {
                     scaleType = PreviewView.ScaleType.FILL_CENTER
-                    // CONECTAMOS EL PREVIEW AQUÍ
                     preview.setSurfaceProvider(surfaceProvider)
-
                     val detector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                         override fun onScale(d: ScaleGestureDetector): Boolean {
                             zoomPercentage = (zoomPercentage + (d.scaleFactor - 1f)).coerceIn(0f, 1f)
@@ -138,15 +124,12 @@ fun CameraScreen(
                             return true
                         }
                     })
-
                     setOnTouchListener { v, e ->
                         detector.onTouchEvent(e)
                         if (e.action == MotionEvent.ACTION_DOWN && e.pointerCount == 1) {
                             v.performClick()
                             focusPoint = Offset(e.x, e.y)
-                            cameraControl?.startFocusAndMetering(
-                                FocusMeteringAction.Builder(meteringPointFactory.createPoint(e.x, e.y)).build()
-                            )
+                            cameraControl?.startFocusAndMetering(FocusMeteringAction.Builder(meteringPointFactory.createPoint(e.x, e.y)).build())
                         }
                         true
                     }
@@ -156,21 +139,25 @@ fun CameraScreen(
         )
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
-        VisorMinimalistaOverlay(alphaVisor)
-        ZoomIndicator(zoom = zoomPercentage, visible = mostrarIndicadorZoom)
 
         AnimatedVisibility(
-            visible = mostrarFlashVisual,
-            enter = fadeIn(animationSpec = tween(50)),
-            exit = fadeOut(animationSpec = tween(150))
+            visible = !triggerScanner,
+            enter = fadeIn(animationSpec = tween(100)),
+            exit = fadeOut(animationSpec = tween(50))
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.8f)))
+            VisorMinimalistaOverlay(alphaVisor)
         }
+
+        ZoomIndicator(zoom = zoomPercentage, visible = mostrarIndicadorZoom)
+
+        // EL ESCÁNER AHORA ES SOLO LA LÍNEA Y EL TINTE
+        EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
         Column(modifier = Modifier.fillMaxSize()) {
             CameraTopBar(
                 onBackClicked = onBackClicked,
                 flashMode = flashMode,
+                triggerScanner = triggerScanner,
                 onFlashToggle = {
                     flashMode = when (flashMode) {
                         ImageCapture.FLASH_MODE_OFF -> ImageCapture.FLASH_MODE_ON
@@ -183,9 +170,8 @@ fun CameraScreen(
             CameraBottomControls(
                 onCaptureClick = {
                     scope.launch {
-                        mostrarFlashVisual = true
-                        delay(100)
-                        mostrarFlashVisual = false
+                        triggerScanner = true
+                        delay(600)
                         tomarFotoTemporal(context, imageCapture) { uri ->
                             val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
                             navController.navigate("preview_screen/$encodedUri")
@@ -196,64 +182,64 @@ fun CameraScreen(
                     galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
                 onSwitchCameraClick = {
-                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
-                        CameraSelector.LENS_FACING_FRONT
-                    } else {
-                        CameraSelector.LENS_FACING_BACK
-                    }
+                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                 }
             )
         }
     }
 }
 
-// --- COMPONENTES AUXILIARES ---
+// --- ESCÁNER CLEAN (Sin Brackets) ---
 
 @Composable
-fun CameraBottomControls(
-    onCaptureClick: () -> Unit,
-    onGalleryClick: () -> Unit,
-    onSwitchCameraClick: () -> Unit
-) {
-    var rotationAngle by remember { mutableFloatStateOf(0f) }
-    val animatedRotation by animateFloatAsState(
-        targetValue = rotationAngle,
-        animationSpec = tween(500, easing = FastOutSlowInEasing), label = ""
-    )
+fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
+    val colorScanner = Color(0xFF7ACAFF)
+    val scanProgress = remember { Animatable(0f) }
+    val alphaEfecto = remember { Animatable(0f) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp, start = 32.dp, end = 32.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(50.dp).border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape).clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.1f)).clickable { onGalleryClick() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color.White)
+    LaunchedEffect(trigger) {
+        if (trigger) {
+            launch {
+                alphaEfecto.animateTo(1f, tween(100))
+                delay(400)
+                alphaEfecto.animateTo(0f, tween(200))
+            }
+            scanProgress.animateTo(1f, tween(600, easing = LinearEasing))
+            scanProgress.snapTo(0f)
+            onFinished()
         }
+    }
 
-        Box(
-            modifier = Modifier.size(80.dp).border(4.dp, Color.White, CircleShape).padding(6.dp)
-                .clip(CircleShape).background(Color(0xFFD25450)).clickable { onCaptureClick() }
-        )
+    if (trigger) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val currentY = h * scanProgress.value
 
-        Box(
-            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
-                .clickable {
-                    rotationAngle += 180f
-                    onSwitchCameraClick()
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Cached, contentDescription = null, tint = Color.White, modifier = Modifier.rotate(animatedRotation))
+            // 1. Línea de Scanner con Glow
+            drawLine(
+                brush = Brush.verticalGradient(
+                    colors = listOf(colorScanner.copy(alpha = 0f), colorScanner, colorScanner.copy(alpha = 0f)),
+                    startY = currentY - 20.dp.toPx(),
+                    endY = currentY + 20.dp.toPx()
+                ),
+                start = Offset(0f, currentY),
+                end = Offset(w, currentY),
+                strokeWidth = 3.dp.toPx()
+            )
+
+            // 2. Tinte de pantalla azulado suave arriba de la línea
+            drawRect(
+                color = colorScanner.copy(alpha = 0.15f * alphaEfecto.value),
+                size = Size(w, currentY),
+                topLeft = Offset(0f, 0f)
+            )
         }
     }
 }
 
 @Composable
-fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, onFlashToggle: () -> Unit) {
+fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, onFlashToggle: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 40.dp, start = 8.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -262,7 +248,14 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, onFlashToggle: () ->
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
         }
         Spacer(modifier = Modifier.weight(1f))
-        Text(text = "¿Y si esto fuera un cuento?", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Light)
+        Text(
+            text = if (triggerScanner) "ANALIZANDO REALIDAD..." else "¿Y si esto fuera un cuento?",
+            color = if (triggerScanner) Color(0xFF7ACAFF) else Color.White,
+            fontSize = if (triggerScanner) 12.sp else 16.sp,
+            fontWeight = if (triggerScanner) FontWeight.Bold else FontWeight.Light,
+            textAlign = TextAlign.Center,
+            fontFamily = FontFamily.SansSerif
+        )
         Spacer(modifier = Modifier.weight(1f))
         IconButton(onClick = onFlashToggle) {
             val icon = when (flashMode) {
@@ -271,6 +264,26 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, onFlashToggle: () ->
                 else -> Icons.Default.FlashOff
             }
             Icon(icon, contentDescription = null, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit, onSwitchCameraClick: () -> Unit) {
+    var rotationAngle by remember { mutableFloatStateOf(0f) }
+    val animatedRotation by animateFloatAsState(targetValue = rotationAngle, animationSpec = tween(500), label = "")
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp, start = 32.dp, end = 32.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(50.dp).border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable { onGalleryClick() }, contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color.White)
+        }
+        Box(modifier = Modifier.size(80.dp).border(4.dp, Color.White, CircleShape).padding(6.dp).clip(CircleShape).background(Color(0xFFD25450)).clickable { onCaptureClick() })
+        Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable { rotationAngle += 180f; onSwitchCameraClick() }, contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Cached, contentDescription = null, tint = Color.White, modifier = Modifier.rotate(animatedRotation))
         }
     }
 }
@@ -290,46 +303,26 @@ fun ZoomIndicator(zoom: Float, visible: Boolean) {
 fun FocusRing(offset: Offset, onFinished: () -> Unit) {
     val scale = remember { Animatable(1.5f) }
     val alpha = remember { Animatable(1f) }
-    LaunchedEffect(Unit) {
-        scale.animateTo(1f, animationSpec = tween(300))
-        delay(600)
-        alpha.animateTo(0f, animationSpec = tween(300))
-        onFinished()
-    }
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        drawCircle(color = Color(0xFF7ACAFF), radius = 40.dp.toPx() * scale.value, center = offset, style = Stroke(width = 2.dp.toPx()), alpha = alpha.value)
-    }
+    LaunchedEffect(Unit) { scale.animateTo(1f, tween(300)); delay(600); alpha.animateTo(0f, tween(300)); onFinished() }
+    Canvas(modifier = Modifier.fillMaxSize()) { drawCircle(color = Color(0xFF7ACAFF), radius = 40.dp.toPx() * scale.value, center = offset, style = Stroke(width = 2.dp.toPx()), alpha = alpha.value) }
 }
 
 @Composable
 fun VisorMinimalistaOverlay(alphaVisor: Float) {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val sizeW = size.width
-        val sizeH = size.height
-        val strokeWidth = 2.dp.toPx()
-        val arcSize = 80.dp.toPx()
-        val cornerSize = Size(arcSize, arcSize)
-        val colorVisor = Color.White.copy(alpha = alphaVisor)
-        val padding = 70.dp.toPx()
-        val topOffset = 100.dp.toPx()
-        val bottomOffset = 150.dp.toPx()
-        drawArc(color = colorVisor, startAngle = 180f, sweepAngle = 90f, useCenter = false, topLeft = Offset(padding, padding + topOffset), size = cornerSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-        drawArc(color = colorVisor, startAngle = 270f, sweepAngle = 90f, useCenter = false, topLeft = Offset(sizeW - padding - arcSize, padding + topOffset), size = cornerSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-        drawArc(color = colorVisor, startAngle = 90f, sweepAngle = 90f, useCenter = false, topLeft = Offset(padding, sizeH - padding - arcSize - bottomOffset), size = cornerSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-        drawArc(color = colorVisor, startAngle = 0f, sweepAngle = 90f, useCenter = false, topLeft = Offset(sizeW - padding - arcSize, sizeH - padding - arcSize - bottomOffset), size = cornerSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+        val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val colorVisor = Color.White.copy(alpha = alphaVisor); val pad = 70.dp.toPx(); val topOff = 100.dp.toPx(); val botOff = 150.dp.toPx()
+        drawArc(colorVisor, 180f, 90f, false, Offset(pad, pad + topOff), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(colorVisor, 270f, 90f, false, Offset(w - pad - arcSize, pad + topOff), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(colorVisor, 90f, 90f, false, Offset(pad, h - pad - arcSize - botOff), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawArc(colorVisor, 0f, 90f, false, Offset(w - pad - arcSize, h - pad - arcSize - botOff), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
     }
 }
 
 fun tomarFotoTemporal(context: android.content.Context, imageCapture: ImageCapture, onResult: (Uri) -> Unit) {
     val photoFile = File(context.cacheDir, "temp_burbuja_${System.currentTimeMillis()}.jpg")
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-    imageCapture.takePicture(
-        outputOptions, ContextCompat.getMainExecutor(context),
-        object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                onResult(outputFileResults.savedUri ?: Uri.fromFile(photoFile))
-            }
-            override fun onError(e: ImageCaptureException) { Log.e("BURBUJA", "Error: ${e.message}") }
-        }
-    )
+    imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
+        override fun onImageSaved(results: ImageCapture.OutputFileResults) { onResult(results.savedUri ?: Uri.fromFile(photoFile)) }
+        override fun onError(e: ImageCaptureException) { Log.e("BURBUJA", "Error: ${e.message}") }
+    })
 }
