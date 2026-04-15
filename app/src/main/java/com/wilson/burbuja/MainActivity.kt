@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -53,7 +54,6 @@ fun MainScreen() {
     val rutaActual = navBackStackEntry?.destination?.route
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
-    // --- LÓGICA DE PERMISOS ---
     var tienePermiso by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -66,7 +66,6 @@ fun MainScreen() {
 
     Scaffold(
         containerColor = Color(0xFF1F2A37),
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             AnimatedVisibility(
                 visible = mostrarBottomBar,
@@ -80,13 +79,13 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            modifier = Modifier.fillMaxSize()
+            // ELIMINA EL NEGRO: El NavHost ahora tiene tu azul de fondo
+            modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))
         ) {
-            // PANTALLA INICIO CON TRANSICIÓN DE ZOOM
             composable(
                 route = "inicio",
-                enterTransition = { fadeIn(tween(600)) + scaleIn(initialScale = 0.92f) },
-                exitTransition = { fadeOut(tween(600)) + scaleOut(targetScale = 0.92f) }
+                enterTransition = { fadeIn(tween(400)) },
+                exitTransition = { fadeOut(tween(400)) }
             ) {
                 PantallaInicio(
                     paddingValues = paddingValues,
@@ -97,17 +96,18 @@ fun MainScreen() {
                 )
             }
 
-            // GALERÍA
             composable("galeria") { PantallaGaleria(paddingValues) }
-
-            // GUARDADOS
             composable("guardados") { PantallaGuardados(paddingValues) }
 
-            // CÁMARA CON DESLIZAMIENTO VERTICAL
             composable(
                 route = "camara",
-                enterTransition = { slideInVertically(initialOffsetY = { it }) + fadeIn() },
-                exitTransition = { slideOutVertically(targetOffsetY = { it }) + fadeOut() }
+                enterTransition = {
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(500)) + fadeIn()
+                },
+                exitTransition = { fadeOut(tween(500)) },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(500)) + fadeOut()
+                }
             ) {
                 CameraScreen(
                     navController = navController,
@@ -115,10 +115,11 @@ fun MainScreen() {
                 )
             }
 
-            // PREVIEW
             composable(
                 route = "preview_screen/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
+                enterTransition = { fadeIn(tween(500)) },
+                exitTransition = { fadeOut(tween(400)) }
             ) { backStackEntry ->
                 val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
                 val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
@@ -128,49 +129,22 @@ fun MainScreen() {
     }
 }
 
-// --- FUENTES ---
-val IBMPlexSansFamily = FontFamily(
-    Font(R.font.ibmplexsans_regular, FontWeight.Normal),
-    Font(R.font.ibmplexsans_light, FontWeight.Light)
-)
-val InterFamily = FontFamily(Font(R.font.inter_variable))
-
-// --- PANTALLAS ---
-
+// (Mantené PantallaInicio, BotonCamaraPrincipal y placeholders igual que antes)
 @Composable
 fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
-    // Estado para disparar la animación de elementos internos
     var startAnim by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { startAnim = true }
-
     Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Texto con entrada suave desde arriba
-            AnimatedVisibility(
-                visible = startAnim,
-                enter = fadeIn(tween(1000)) + slideInVertically(initialOffsetY = { -30 })
-            ) {
-                Text(
-                    text = "¿Qué historia hay a tu alrededor hoy?",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = IBMPlexSansFamily,
-                    fontWeight = FontWeight.Light
-                )
+            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800)) + slideInVertically(initialOffsetY = { -20 })) {
+                Text(text = "¿Qué historia hay a tu alrededor hoy?", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, textAlign = TextAlign.Center, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Light)
             }
-
             Spacer(modifier = Modifier.height(40.dp))
-
-            // Botón con entrada escalonada (delay de 300ms)
-            AnimatedVisibility(
-                visible = startAnim,
-                enter = fadeIn(tween(1000, 300)) + slideInVertically(initialOffsetY = { 30 }, animationSpec = tween(1000, 300))
-            ) {
+            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800, 200)) + slideInVertically(initialOffsetY = { 20 })) {
                 BotonCamaraPrincipal(onClick = onAbrirCamara)
             }
         }
@@ -189,18 +163,10 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Abrir la cámara",
-                fontSize = 16.sp,
-                fontFamily = InterFamily,
-                fontWeight = FontWeight.Normal,
-                color = Color.White.copy(alpha = 0.8f),
-            )
+            Text(text = "Abrir la cámara", fontSize = 16.sp, fontWeight = FontWeight.Normal, color = Color.White.copy(alpha = 0.8f))
         }
     }
 }
 
-@Composable
-fun PantallaGaleria(p: PaddingValues) { /* ... igual con Box(Modifier.padding(p)) ... */ }
-@Composable
-fun PantallaGuardados(p: PaddingValues) { /* ... igual con Box(Modifier.padding(p)) ... */ }
+@Composable fun PantallaGaleria(p: PaddingValues) { Box(Modifier.fillMaxSize().padding(p).background(Color(0xFF1F2A37))) }
+@Composable fun PantallaGuardados(p: PaddingValues) { Box(Modifier.fillMaxSize().padding(p).background(Color(0xFF1F2A37))) }
