@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -37,9 +38,9 @@ fun MainScreen() {
     val navController = rememberNavController()
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37), // Fondo oscuro tecno
+        containerColor = Color(0xFF111827), // Fondo tecno-minimalista
         bottomBar = {
-            NavegacionLiteral(navController = navController)
+            // Aquí iría tu componente de navegación literal
         }
     ) { paddingValues ->
         NavHost(
@@ -47,16 +48,26 @@ fun MainScreen() {
             startDestination = "inicio",
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable("inicio") { PantallaInicio() }
+            composable("inicio") {
+                PantallaInicio(navController = navController)
+            }
             composable("galeria") { PantallaGaleria() }
             composable("guardados") { PantallaGuardados() }
+
+            // --- CONEXIÓN CON LOS ARCHIVOS RECUPERADOS ---
+            composable("camera") {
+                CameraScreen(navController = navController)
+            }
+            composable("preview/{photoUri}") { backStackEntry ->
+                val uri = backStackEntry.arguments?.getString("photoUri") ?: ""
+                PreviewScreen(navController = navController, photoUri = uri)
+            }
         }
     }
 }
 
-// --- AQUÍ ESTÁ EL TRUCO: LA PANTALLA DEBE LLAMAR AL BOTÓN ---
 @Composable
-fun PantallaInicio() {
+fun PantallaInicio(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,9 +85,9 @@ fun PantallaInicio() {
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // LLAMADA AL BOTÓN (Si esto no está, el botón no aparece)
+        // BOTÓN CON NAVEGACIÓN ACTIVA
         BotonCamaraPrincipal(onClick = {
-            /* Lógica de cámara próximamente */
+            navController.navigate("camera")
         })
     }
 }
@@ -87,30 +98,17 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(45.dp),
+            .height(50.dp),
         shape = CircleShape,
-        border = BorderStroke(2.dp, Color(0xFF7ACAFF)), // Tu celeste tecno
-        // Forzamos el contentColor a blanco aquí también por seguridad
+        border = BorderStroke(2.dp, Color(0xFF7ACAFF)),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = Color.White,
-            containerColor = Color.Transparent
+            contentColor = Color.White
         )
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center // Asegura que el grupo esté centrado
-        ) {
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                contentDescription = null,
-                tint = Color.White // <--- Forzamos el icono a blanco
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Abrir la cámara",
-                fontSize = 16.sp,
-                color = Color.White // <--- Forzamos el texto a blanco
-            )
+            Text("Abrir la cámara", fontSize = 16.sp, color = Color.White)
         }
     }
 }
@@ -118,13 +116,13 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
 @Composable
 fun PantallaGaleria() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Galería de renders", color = Color.White)
+        Text("Galería", color = Color.White)
     }
 }
 
 @Composable
 fun PantallaGuardados() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Historias favoritas", color = Color.White)
+        Text("Favoritos", color = Color.White)
     }
 }
