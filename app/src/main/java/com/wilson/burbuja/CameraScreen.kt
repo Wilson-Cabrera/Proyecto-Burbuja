@@ -51,6 +51,15 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.random.Random
 
+// Modelo para que las partículas sean estables y fluidas
+data class ParticulaScanner(
+    val xRelativa: Float,
+    val yRelativa: Float,
+    val tamano: Float,
+    val opacidadBase: Float,
+    val velocidadFlote: Float
+)
+
 @Composable
 fun CameraScreen(
     navController: NavController,
@@ -61,6 +70,7 @@ fun CameraScreen(
     val scope = rememberCoroutineScope()
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
+    // --- FRASES NARRATIVAS ---
     val frasesNarrativas = remember {
         listOf(
             "¿Y si esto fuera un cuento?",
@@ -72,6 +82,7 @@ fun CameraScreen(
     }
     val fraseSeleccionada = remember { frasesNarrativas.random() }
 
+    // --- ESTADOS ---
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
@@ -136,6 +147,7 @@ fun CameraScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // VINIETA PARA PROFUNDIDAD
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.radialGradient(
@@ -148,13 +160,14 @@ fun CameraScreen(
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
 
+        // VISOR ESTÁTICO (Sin parpadeos)
         AnimatedVisibility(visible = !triggerScanner, enter = fadeIn(), exit = fadeOut()) {
             VisorMinimalistaOverlay()
         }
 
         ZoomIndicator(zoom = zoomPercentage, visible = mostrarIndicadorZoom)
 
-        // SCANNER CON PARTÍCULAS CIRCULARES (SOFT)
+        // SCANNER OPTIMIZADO (Smooth FPS)
         EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -196,25 +209,38 @@ fun CameraScreen(
     }
 }
 
+// --- SCANNER HIGH-PERFORMANCE ---
+
 @Composable
 fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
     val colorScanner = Color(0xFF7ACAFF)
     val scanProgress = remember { Animatable(0f) }
     val alphaEfecto = remember { Animatable(0f) }
 
-    // Lista de partículas para recuperar la magia
-    val particulas = remember {
-        List(40) { Offset(Random.nextFloat(), Random.nextFloat() * 0.14f - 0.07f) }
+    // Partículas pre-calculadas para evitar cálculos pesados en el DrawScope
+    val particulasEstables = remember {
+        List(40) {
+            ParticulaScanner(
+                xRelativa = Random.nextFloat(),
+                yRelativa = Random.nextFloat() * 0.14f - 0.07f,
+                tamano = Random.nextFloat() * 2f + 1f,
+                opacidadBase = Random.nextFloat() * 0.5f + 0.2f,
+                velocidadFlote = Random.nextFloat() * 15f - 7.5f
+            )
+        }
     }
 
     LaunchedEffect(trigger) {
         if (trigger) {
             launch {
-                alphaEfecto.animateTo(1f, tween(100))
-                delay(450)
-                alphaEfecto.animateTo(0f, tween(200))
+                alphaEfecto.animateTo(1f, tween(150))
+                delay(400)
+                alphaEfecto.animateTo(0f, tween(250))
             }
-            scanProgress.animateTo(1f, tween(700, easing = LinearEasing))
+            scanProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(850, easing = FastOutSlowInEasing)
+            )
             scanProgress.snapTo(0f)
             onFinished()
         }
@@ -226,45 +252,50 @@ fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
             val h = size.height
             val currentY = h * scanProgress.value
 
-            // 1. Línea principal
+            // Línea con Glow
             drawLine(
-                brush = Brush.verticalGradient(
-                    colors = listOf(colorScanner.copy(alpha = 0f), colorScanner, colorScanner.copy(alpha = 0f)),
-                    startY = currentY - 15.dp.toPx(),
-                    endY = currentY + 15.dp.toPx()
-                ),
+                color = colorScanner.copy(alpha = 0.3f * alphaEfecto.value),
                 start = Offset(0f, currentY),
                 end = Offset(w, currentY),
-                strokeWidth = 2.dp.toPx()
+                strokeWidth = 5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color = colorScanner.copy(alpha = alphaEfecto.value),
+                start = Offset(0f, currentY),
+                end = Offset(w, currentY),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
             )
 
-            // 2. RECUPERAMOS LAS PARTÍCULAS (Ahora son círculos pequeños)
-            particulas.forEach { p ->
-                val px = p.x * w
-                val py = currentY + (p.y * h * 0.4f)
+            // Partículas con trayectoria fluida
+            particulasEstables.forEach { p ->
+                val px = (p.xRelativa * w) + (p.velocidadFlote * scanProgress.value)
+                val py = currentY + (p.yRelativa * h)
 
                 drawCircle(
                     color = colorScanner,
                     center = Offset(px, py),
-                    radius = Random.nextInt(1, 3).dp.toPx(), // Círculos muy chiquitos
-                    alpha = (Random.nextFloat() * 0.6f + 0.2f) * alphaEfecto.value
+                    radius = p.tamano.dp.toPx(),
+                    alpha = p.opacidadBase * alphaEfecto.value
                 )
             }
 
-            // 3. Tinte superior
             drawRect(
-                color = colorScanner.copy(alpha = 0.1f * alphaEfecto.value),
+                color = colorScanner.copy(alpha = 0.08f * alphaEfecto.value),
                 size = Size(w, currentY)
             )
         }
     }
 }
 
+// --- COMPONENTES DE UI ---
+
 @Composable
 fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 40.dp, start = 16.dp, end = 16.dp)
-            .clip(RoundedCornerShape(24.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.7f))
+            .clip(RoundedCornerShape(24.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
             .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)).padding(vertical = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -295,8 +326,8 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
 
     Box(
         modifier = Modifier.fillMaxWidth().padding(bottom = 40.dp, start = 24.dp, end = 24.dp)
-            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.0f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.0f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
+            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
+            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape).clickable { onGalleryClick() }, contentAlignment = Alignment.Center) {
@@ -309,6 +340,8 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
         }
     }
 }
+
+// --- COMPONENTES AUXILIARES ---
 
 @Composable
 fun ZoomIndicator(zoom: Float, visible: Boolean) {
