@@ -150,7 +150,6 @@ fun CameraScreen(
 
         ZoomIndicator(zoom = zoomPercentage, visible = mostrarIndicadorZoom)
 
-        // EL ESCÁNER AHORA ES SOLO LA LÍNEA Y EL TINTE
         EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -167,6 +166,8 @@ fun CameraScreen(
                 }
             )
             Spacer(modifier = Modifier.weight(1f))
+
+            // Pasamos el control de los botones con el padding actualizado
             CameraBottomControls(
                 onCaptureClick = {
                     scope.launch {
@@ -188,8 +189,6 @@ fun CameraScreen(
         }
     }
 }
-
-// --- ESCÁNER CLEAN (Sin Brackets) ---
 
 @Composable
 fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
@@ -216,7 +215,6 @@ fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
             val h = size.height
             val currentY = h * scanProgress.value
 
-            // 1. Línea de Scanner con Glow
             drawLine(
                 brush = Brush.verticalGradient(
                     colors = listOf(colorScanner.copy(alpha = 0f), colorScanner, colorScanner.copy(alpha = 0f)),
@@ -228,7 +226,6 @@ fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
                 strokeWidth = 3.dp.toPx()
             )
 
-            // 2. Tinte de pantalla azulado suave arriba de la línea
             drawRect(
                 color = colorScanner.copy(alpha = 0.15f * alphaEfecto.value),
                 size = Size(w, currentY),
@@ -274,7 +271,9 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
     val animatedRotation by animateFloatAsState(targetValue = rotationAngle, animationSpec = tween(500), label = "")
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp, start = 32.dp, end = 32.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 80.dp, start = 32.dp, end = 32.dp), // PADDING ACTUALIZADO A 80.dp
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

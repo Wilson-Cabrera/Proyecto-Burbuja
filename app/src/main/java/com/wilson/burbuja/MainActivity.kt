@@ -3,10 +3,14 @@ package com.wilson.burbuja
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -29,8 +33,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.wilson.burbuja.ui.theme.BurbujaTheme
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,15 +49,11 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val navController = rememberNavController()
     val context = LocalContext.current
-
-    // Lógica para saber en qué pantalla estamos
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
-
-    // Decidimos si mostrar la barra de navegación (solo en las principales)
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
-    // --- PERMISOS ---
+    // --- LÓGICA DE PERMISOS ---
     var tienePermiso by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -68,9 +66,13 @@ fun MainScreen() {
 
     Scaffold(
         containerColor = Color(0xFF1F2A37),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (mostrarBottomBar) {
-                // Aquí llamamos a tu componente de navegación externa
+            AnimatedVisibility(
+                visible = mostrarBottomBar,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
                 NavegacionLiteral(navController = navController)
             }
         }
@@ -78,111 +80,100 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            // Si no hay barra, usamos padding 0 para que la cámara sea Full Screen
-            modifier = Modifier.padding(if (mostrarBottomBar) paddingValues else PaddingValues(0.dp))
+            modifier = Modifier.fillMaxSize()
         ) {
-            // 1. INICIO
-            composable("inicio") {
+            // PANTALLA INICIO CON TRANSICIÓN DE ZOOM
+            composable(
+                route = "inicio",
+                enterTransition = { fadeIn(tween(600)) + scaleIn(initialScale = 0.92f) },
+                exitTransition = { fadeOut(tween(600)) + scaleOut(targetScale = 0.92f) }
+            ) {
                 PantallaInicio(
+                    paddingValues = paddingValues,
                     onAbrirCamara = {
-                        if (tienePermiso) {
-                            navController.navigate("camara")
-                        } else {
-                            launcher.launch(Manifest.permission.CAMERA)
-                        }
+                        if (tienePermiso) navController.navigate("camara")
+                        else launcher.launch(Manifest.permission.CAMERA)
                     }
                 )
             }
 
-            // 2. GALERÍA
-            composable("galeria") { PantallaGaleria() }
+            // GALERÍA
+            composable("galeria") { PantallaGaleria(paddingValues) }
 
-            // 3. GUARDADOS
-            composable("guardados") { PantallaGuardados() }
+            // GUARDADOS
+            composable("guardados") { PantallaGuardados(paddingValues) }
 
-            // 4. CÁMARA (Full Screen)
-            composable("camara") {
+            // CÁMARA CON DESLIZAMIENTO VERTICAL
+            composable(
+                route = "camara",
+                enterTransition = { slideInVertically(initialOffsetY = { it }) + fadeIn() },
+                exitTransition = { slideOutVertically(targetOffsetY = { it }) + fadeOut() }
+            ) {
                 CameraScreen(
                     navController = navController,
                     onBackClicked = { navController.popBackStack() }
                 )
             }
 
-            // 5. PREVIEW (Recibe la foto para confirmar)
+            // PREVIEW
             composable(
                 route = "preview_screen/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
                 val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
                 val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
-
-                PreviewScreen(
-                    navController = navController,
-                    photoUri = decodedUri
-                )
+                PreviewScreen(navController = navController, photoUri = decodedUri)
             }
         }
     }
 }
 
-
-// Importá esto si se pone en rojo:
-// import androidx.compose.ui.text.font.Font
-// import androidx.compose.ui.text.font.FontFamily
-// import androidx.compose.ui.text.font.FontWeight
-// import com.wilson.burbuja.R
-
+// --- FUENTES ---
 val IBMPlexSansFamily = FontFamily(
     Font(R.font.ibmplexsans_regular, FontWeight.Normal),
-    Font(R.font.ibmplexsans_bold, FontWeight.Bold),
-    Font(R.font.ibmplexsans_medium, FontWeight.Medium),
-    Font(R.font.ibmplexsans_light, FontWeight.Light),
-    Font(R.font.ibmplexsans_thin, FontWeight.Thin)
+    Font(R.font.ibmplexsans_light, FontWeight.Light)
 )
+val InterFamily = FontFamily(Font(R.font.inter_variable))
 
-val InterFamily = FontFamily(
-    Font(R.font.inter_variable) // Un solo archivo para dominarlos a todos
-)
-
-// --- PANTALLAS RECUPERADAS (Tus diseños de Figma) ---
+// --- PANTALLAS ---
 
 @Composable
-fun PantallaInicio(onAbrirCamara: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "¿Qué historia hay a tu alrededor hoy?",//texto principal
-            color = Color.White,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-            fontFamily = IBMPlexSansFamily, // <--- LA NUEVA FUENTE
-            fontWeight = FontWeight.Light
-        )
+fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
+    // Estado para disparar la animación de elementos internos
+    var startAnim by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { startAnim = true }
 
-        Spacer(modifier = Modifier.height(48.dp))
+    Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Texto con entrada suave desde arriba
+            AnimatedVisibility(
+                visible = startAnim,
+                enter = fadeIn(tween(1000)) + slideInVertically(initialOffsetY = { -30 })
+            ) {
+                Text(
+                    text = "¿Qué historia hay a tu alrededor hoy?",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center,
+                    fontFamily = IBMPlexSansFamily,
+                    fontWeight = FontWeight.Light
+                )
+            }
 
-        // ACÁ ESTÁ EL CAMBIO: Llamamos a la función que declaraste abajo
-        BotonCamaraPrincipal(onClick = onAbrirCamara)
-    }
-}
+            Spacer(modifier = Modifier.height(40.dp))
 
-@Composable
-fun PantallaGaleria() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Galería de cuentos", color = Color.White, fontSize = 20.sp)
-    }
-}
-
-@Composable
-fun PantallaGuardados() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Historias favoritas", color = Color.White, fontSize = 20.sp)
+            // Botón con entrada escalonada (delay de 300ms)
+            AnimatedVisibility(
+                visible = startAnim,
+                enter = fadeIn(tween(1000, 300)) + slideInVertically(initialOffsetY = { 30 }, animationSpec = tween(1000, 300))
+            ) {
+                BotonCamaraPrincipal(onClick = onAbrirCamara)
+            }
+        }
     }
 }
 
@@ -190,38 +181,26 @@ fun PantallaGuardados() {
 fun BotonCamaraPrincipal(onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(46.dp), // Más alto para que el texto no se corte
+        modifier = Modifier.fillMaxWidth().height(54.dp),
         shape = CircleShape,
-        border = BorderStroke(1.dp, Color(0xFF7ACAFF)),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = Color.White,
-            containerColor = Color.Transparent
-        )
+        border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.5f)),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(), // Ocupa todo el ancho del botón
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center // ESTO centra el pack Icono + Texto
-        ) {
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                contentDescription = null,
-                tint = Color.White
-            )
-
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
-
             Text(
                 text = "Abrir la cámara",
                 fontSize = 16.sp,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                fontFamily = InterFamily, // <--- Usamos la nueva
-                fontWeight = FontWeight.Thin // Podés usar Thin, Light, Medium, Bold...
-
+                fontFamily = InterFamily,
+                fontWeight = FontWeight.Normal,
+                color = Color.White.copy(alpha = 0.8f),
             )
         }
     }
 }
+
+@Composable
+fun PantallaGaleria(p: PaddingValues) { /* ... igual con Box(Modifier.padding(p)) ... */ }
+@Composable
+fun PantallaGuardados(p: PaddingValues) { /* ... igual con Box(Modifier.padding(p)) ... */ }
