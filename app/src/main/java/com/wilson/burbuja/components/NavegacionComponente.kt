@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,9 +43,9 @@ fun NavegacionLiteral(navController: NavController) {
         Surface(
             modifier = Modifier
                 .weight(1f) // Esto hace que la barra sea lo más ancha posible
-                .height(64.dp), // Tu altura original
-            shape = RoundedCornerShape(32.dp),
-            color = Color(0xFF374758).copy(alpha = 0.8f), // Tu color grisáceo original
+                .height(56.dp), // Tu altura original
+            shape = RoundedCornerShape(32.dp),//Curva
+            color = Color(0xFF6E88A6).copy(alpha = 0.9f), // Tu color grisáceo original
             shadowElevation = 0.dp
         ) {
             Row(
@@ -65,7 +66,7 @@ fun NavegacionLiteral(navController: NavController) {
                     onClick = { navController.navigate("galeria") }
                 )
                 ItemNavegacionLiteral(
-                    icon = Icons.Default.Favorite,
+                    icon = Icons.Default.Star,
                     label = "Guardados", // <--- ACÁ ESTÁ EL DESAFÍO
                     selected = rutaActual == "guardados",
                     onClick = { navController.navigate("guardados") }
@@ -73,7 +74,7 @@ fun NavegacionLiteral(navController: NavController) {
             }
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(6.dp))
 
         // --- 2. EL CÍRCULO "W" (Por fuera, con tu color específico) ---
         Surface(
@@ -102,14 +103,14 @@ fun ItemNavegacionLiteral(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
+    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White// color de los elementos seleccionados
 
     // Si está seleccionado, recreamos la cápsula que lo rodea
     val modifierSeleccionado = if (selected) {
         Modifier
             .clip(CircleShape)
             // Fondo celeste muy suave de la cápsula
-            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))
+            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))//color de la capsula seleccionada
             // Borde celeste brillante
 
             // Padding horizontal amplio para que el texto de "Guardados" entre
