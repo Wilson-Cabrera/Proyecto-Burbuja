@@ -3,9 +3,12 @@ package com.wilson.burbuja
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -13,93 +16,122 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset // Faltaba esta
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
 import kotlinx.coroutines.delay
 import java.io.File
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun PreviewScreen(navController: NavController, photoUri: String) {
-    // 1. Estado para retrasar el renderizado pesado
     var mostrarContenido by remember { mutableStateOf(false) }
 
-    // 2. Esperamos a que la transición del NavHost termine (aprox 400-500ms)
+    // Decodificamos la URI por seguridad
+    val decodedUri = remember(photoUri) {
+        URLDecoder.decode(photoUri, StandardCharsets.UTF_8.toString())
+    }
+
     LaunchedEffect(Unit) {
-        delay(450)
+        delay(300)
         mostrarContenido = true
     }
 
-    // Usamos el fondo oscuro que definimos en el NavHost para que no haya saltos
+    val fondoGradient = Brush.radialGradient(
+        colors = listOf(Color(0xFF2D3B4D), Color(0xFF111827)),
+        radius = 2000f
+    )
+
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFF1F2A37))
+        .background(fondoGradient)
     ) {
-        // --- LA IMAGEN CON REVELADO SUAVE ---
-        AnimatedVisibility(
-            visible = mostrarContenido,
-            enter = fadeIn(tween(600)) + scaleIn(initialScale = 0.98f, animationSpec = tween(600)),
-            modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AsyncImage(
-                model = photoUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
-        }
+            // CONTENEDOR DE LA IMAGEN
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 30.dp, vertical = 60.dp)
+                    .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = Color(0xFF7ACAFF))
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.Black)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), RoundedCornerShape(24.dp))
+            ) {
+                if (mostrarContenido) {
+                    AsyncImage(
+                        model = decodedUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
 
-        // --- CONTROLES INFERIORES ---
-        // Los mostramos un poquito después que la foto para dar sensación de orden
-        AnimatedVisibility(
-            visible = mostrarContenido,
-            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(tween(800)),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            Row(
+            Text(
+                text = "¿ES ESTE EL OBJETO?",
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 4.sp,
+                modifier = Modifier.padding(bottom = 30.dp)
+            )
+
+            // BARRA DE CONTROL
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 60.dp, start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 50.dp, start = 30.dp, end = 30.dp)
+                    .height(90.dp),
+                color = Color.White.copy(alpha = 0.05f),
+                shape = RoundedCornerShape(45.dp),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
             ) {
-                // BOTÓN REINTENTAR
-                Surface(
-                    onClick = {
-                        try {
-                            val uri = Uri.parse(photoUri)
-                            val file = File(uri.path ?: "")
-                            if (file.exists()) file.delete()
-                        } catch (e: Exception) { e.printStackTrace() }
-                        navController.popBackStack()
-                    },
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier.size(64.dp)
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    // BOTÓN DESCARTAR
+                    IconButton(
+                        onClick = {
+                            try {
+                                val file = File(Uri.parse(decodedUri).path ?: "")
+                                if (file.exists()) file.delete()
+                            } catch (e: Exception) { e.printStackTrace() }
+                            navController.popBackStack()
+                        },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), CircleShape)
+                    ) {
                         Icon(Icons.Default.Close, "Descartar", tint = Color.White)
                     }
-                }
 
-                // BOTÓN CONTINUAR (El principal de la acción)
-                Surface(
-                    onClick = { /* Aquí dispararemos la magia de Burbuja */ },
-                    shape = CircleShape,
-                    color = Color(0xFF7ACAFF),
-                    modifier = Modifier.size(80.dp),
-                    shadowElevation = 8.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Check,
-                            "Confirmar",
-                            tint = Color(0xFF1F2A37),
-                            modifier = Modifier.size(36.dp)
-                        )
+                    // BOTÓN CONFIRMAR
+                    Button(
+                        onClick = { /* Próxima etapa: IA */ },
+                        modifier = Modifier
+                            .height(54.dp)
+                            .width(130.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7ACAFF)),
+                        shape = RoundedCornerShape(27.dp)
+                    ) {
+                        Icon(Icons.Default.Check, null, tint = Color(0xFF111827))
+                        Spacer(Modifier.width(8.dp))
+                        Text("LISTO", color = Color(0xFF111827), fontWeight = FontWeight.Bold)
                     }
                 }
             }

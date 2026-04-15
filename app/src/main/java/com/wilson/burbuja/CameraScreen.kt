@@ -26,8 +26,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -51,7 +50,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.random.Random
 
-// Modelo para que las partículas sean estables en el DrawScope
+// Modelo de partículas para el scanner
 data class ParticulaScanner(
     val xRelativa: Float,
     val yRelativa: Float,
@@ -70,19 +69,26 @@ fun CameraScreen(
     val scope = rememberCoroutineScope()
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    // --- ESTADOS TÉCNICOS DE HARDWARE ---
-    var streamReady by remember { mutableStateOf(false) }
+    // --- NARRATIVA ---
+    val frasesNarrativas = remember {
+        listOf(
+            "¿Y si esto fuera un cuento?",
+            "Capturando pedacitos de magia...",
+            "Transformando la realidad...",
+            "¿Qué historia se esconde aquí?",
+            "Buscando el inicio de un relato..."
+        )
+    }
+    val fraseSeleccionada = remember { frasesNarrativas.random() }
 
-    // --- ESTADOS DE CÁMARA ---
-    var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
-    var focusPoint by remember { mutableStateOf<Offset?>(null) }
-    var zoomPercentage by remember { mutableFloatStateOf(0f) }
+    // --- ESTADOS ---
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
-
-    // --- ESTADOS DE PROCESO ---
-    var triggerScanner by remember { mutableStateOf(false) }
     var procesandoCaptura by remember { mutableStateOf(false) }
+    var triggerScanner by remember { mutableStateOf(false) }
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
+    var girandoCamara by remember { mutableStateOf(false) }
 
     val preview = remember { Preview.Builder().build() }
     val imageCapture = remember {
@@ -101,48 +107,38 @@ fun CameraScreen(
         }
     }
 
-    // Vinculación del ciclo de vida de CameraX
-    LaunchedEffect(lensFacing, flashMode) {
+    LaunchedEffect(lensFacing) {
         val cameraProvider = cameraProviderFuture.get()
         val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-        imageCapture.flashMode = flashMode
         try {
             cameraProvider.unbindAll()
             val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
             cameraControl = camera.cameraControl
-        } catch (e: Exception) { Log.e("BURBUJA_TECH", "Error: ${e.message}") }
+            imageCapture.flashMode = flashMode
+        } catch (e: Exception) { Log.e("BURBUJA", "Error: ${e.message}") }
     }
 
-    // El contenedor es Negro Puro para máxima inmersión multimedia
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    // Animaciones de GPU para el efecto de desenfoque al girar
+    val blurAlpha by animateFloatAsState(targetValue = if (girandoCamara) 0.7f else 1f, animationSpec = tween(300))
+    val blurScale by animateFloatAsState(targetValue = if (girandoCamara) 1.08f else 1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
 
-        // --- VISTA DE CÁMARA (Lógica de Stream Directa) ---
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
-                    // COMPATIBLE permite que Compose controle el Alpha de la superficie con la GPU
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                     scaleType = PreviewView.ScaleType.FILL_CENTER
-
-                    // ESCUCHA TÉCNICA: Solo cuando el stream está listo, 'streamReady' es true
-                    previewStreamState.observe(lifecycleOwner) { state ->
-                        if (state == PreviewView.StreamState.STREAMING) {
-                            streamReady = true
-                        }
-                    }
-
                     preview.setSurfaceProvider(surfaceProvider)
 
                     val detector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                         override fun onScale(d: ScaleGestureDetector): Boolean {
-                            zoomPercentage = (zoomPercentage + (d.scaleFactor - 1f)).coerceIn(0f, 1f)
-                            cameraControl?.setLinearZoom(zoomPercentage)
+                            cameraControl?.setLinearZoom(d.scaleFactor - 1f)
                             return true
                         }
                     })
                     setOnTouchListener { v, e ->
                         detector.onTouchEvent(e)
-                        if (e.action == MotionEvent.ACTION_DOWN && e.pointerCount == 1) {
+                        if (e.action == MotionEvent.ACTION_DOWN) {
                             v.performClick()
                             focusPoint = Offset(e.x, e.y)
                             cameraControl?.startFocusAndMetering(FocusMeteringAction.Builder(meteringPointFactory.createPoint(e.x, e.y)).build())
@@ -153,120 +149,74 @@ fun CameraScreen(
             },
             modifier = Modifier
                 .fillMaxSize()
-                // Evitamos el parpadeo negro ocultando la vista hasta que el Stream esté OK
                 .graphicsLayer {
-                    alpha = if (streamReady) 1f else 0f
+                    alpha = blurAlpha
+                    scaleX = blurScale
+                    scaleY = blurScale
                 }
+                .then(if (girandoCamara) Modifier.blur(15.dp) else Modifier)
         )
 
-        // Vinieta sutil para profundidad estética
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
-                    center = center,
-                    radius = size.maxDimension / 1.35f
-                )
-            )
+            drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f)), radius = size.maxDimension / 1.3f))
         }
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
 
-        // --- INTERFAZ (Solo se revela cuando la cámara está lista) ---
-        if (streamReady) {
-            AnimatedVisibility(visible = !triggerScanner && !procesandoCaptura, enter = fadeIn(), exit = fadeOut()) {
-                VisorMinimalistaOverlay()
-            }
-
-            EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
-
-            Column(modifier = Modifier.fillMaxSize()) {
-                CameraTopBar(
-                    onBackClicked = onBackClicked,
-                    flashMode = flashMode,
-                    triggerScanner = triggerScanner,
-                    onFlashToggle = {
-                        flashMode = if (flashMode == ImageCapture.FLASH_MODE_OFF) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
-                    }
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                CameraBottomControls(
-                    onCaptureClick = {
-                        if (procesandoCaptura) return@CameraBottomControls
-                        scope.launch {
-                            triggerScanner = true
-                            delay(750)
-                            procesandoCaptura = true
-                            tomarFotoTemporal(context, imageCapture) { uri ->
-                                val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
-                                navController.navigate("preview_screen/$encodedUri") {
-                                    popUpTo("camara") { inclusive = true }
-                                }
-                            }
+        Column(modifier = Modifier.fillMaxSize()) {
+            CameraTopBar(
+                onBackClicked = onBackClicked,
+                flashMode = flashMode,
+                triggerScanner = triggerScanner,
+                fraseNarrativa = fraseSeleccionada,
+                onFlashToggle = {
+                    flashMode = if (flashMode == ImageCapture.FLASH_MODE_OFF) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+                    imageCapture.flashMode = flashMode
+                }
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            CameraBottomControls(
+                onCaptureClick = {
+                    if (procesandoCaptura || girandoCamara) return@CameraBottomControls
+                    scope.launch {
+                        triggerScanner = true
+                        delay(700)
+                        procesandoCaptura = true
+                        tomarFotoTemporal(context, imageCapture) { uri ->
+                            val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
+                            // NAVEGACIÓN CORREGIDA: Sin popUpTo para poder volver a la cámara
+                            navController.navigate("preview_screen/$encodedUri")
+                            procesandoCaptura = false
                         }
-                    },
-                    onGalleryClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    onSwitchCameraClick = {
-                        streamReady = false // Reseteamos para evitar el frame congelado
-                        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                     }
-                )
-            }
+                },
+                onGalleryClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onSwitchCameraClick = {
+                    scope.launch {
+                        girandoCamara = true
+                        delay(100)
+                        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+                        delay(400)
+                        girandoCamara = false
+                    }
+                }
+            )
         }
 
-        // --- FLASH DE OBTURACIÓN VELOZ ---
-        AnimatedVisibility(
-            visible = procesandoCaptura,
-            enter = fadeIn(tween(100)),
-            exit = fadeOut(tween(400))
-        ) {
-            val flashAlpha by animateFloatAsState(
-                targetValue = if (procesandoCaptura) 0f else 1f,
-                animationSpec = tween(150),
-                label = "Flash"
-            )
+        VisorMinimalistaOverlay()
+        EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
+
+        AnimatedVisibility(visible = procesandoCaptura, enter = fadeIn(tween(100)), exit = fadeOut(tween(400))) {
+            val flashAlpha by animateFloatAsState(targetValue = if (procesandoCaptura) 0f else 1f, animationSpec = tween(150), label = "Flash")
             Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = flashAlpha)))
         }
     }
 }
 
-// --- SCANNER CON PARTÍCULAS ESTABLES ---
-@Composable
-fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
-    val colorScanner = Color(0xFF7ACAFF)
-    val scanProgress = remember { Animatable(0f) }
-    val alphaEfecto = remember { Animatable(0f) }
-    val particulas = remember {
-        List(40) { ParticulaScanner(Random.nextFloat(), Random.nextFloat() * 0.14f - 0.07f, Random.nextFloat() * 2f + 1f, Random.nextFloat() * 0.5f + 0.2f, Random.nextFloat() * 15f - 7.5f) }
-    }
-
-    LaunchedEffect(trigger) {
-        if (trigger) {
-            launch { alphaEfecto.animateTo(1f, tween(150)); delay(450); alphaEfecto.animateTo(0f, tween(250)) }
-            scanProgress.animateTo(1f, tween(850, easing = FastOutSlowInEasing))
-            scanProgress.snapTo(0f); onFinished()
-        }
-    }
-
-    if (trigger) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width; val currentY = size.height * scanProgress.value
-            drawLine(colorScanner.copy(alpha = 0.3f * alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 5.dp.toPx(), StrokeCap.Round)
-            drawLine(colorScanner.copy(alpha = alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 2.dp.toPx(), StrokeCap.Round)
-            particulas.forEach { p ->
-                val px = (p.xRelativa * w) + (p.velocidadFlote * scanProgress.value)
-                val py = currentY + (p.yRelativa * size.height)
-                drawCircle(colorScanner, p.tamano.dp.toPx(), Offset(px, py), p.opacidadBase * alphaEfecto.value)
-            }
-            drawRect(colorScanner.copy(alpha = 0.08f * alphaEfecto.value), size = Size(w, currentY))
-        }
-    }
-}
+// --- COMPONENTES AUXILIARES ---
 
 @Composable
-fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, onFlashToggle: () -> Unit) {
+fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 40.dp, start = 16.dp, end = 16.dp)
             .clip(RoundedCornerShape(24.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
@@ -275,7 +225,7 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Bool
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
             IconButton(onClick = onBackClicked) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
             Spacer(modifier = Modifier.weight(1f))
-            Text(text = if (triggerScanner) "ANALIZANDO..." else "BURBUJA", color = if (triggerScanner) Color(0xFF7ACAFF) else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            Text(text = if (triggerScanner) "ANALIZANDO..." else fraseNarrativa.uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onFlashToggle) {
                 val icon = if (flashMode == ImageCapture.FLASH_MODE_ON) Icons.Default.FlashOn else Icons.Default.FlashOff
@@ -305,6 +255,35 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
 }
 
 @Composable
+fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
+    val colorScanner = Color(0xFF7ACAFF)
+    val scanProgress = remember { Animatable(0f) }
+    val alphaEfecto = remember { Animatable(0f) }
+    val particulas = remember { List(40) { ParticulaScanner(Random.nextFloat(), Random.nextFloat() * 0.14f - 0.07f, Random.nextFloat() * 2f + 1f, Random.nextFloat() * 0.5f + 0.2f, Random.nextFloat() * 15f - 7.5f) } }
+
+    LaunchedEffect(trigger) {
+        if (trigger) {
+            launch { alphaEfecto.animateTo(1f, tween(150)); delay(450); alphaEfecto.animateTo(0f, tween(250)) }
+            scanProgress.animateTo(1f, tween(850, easing = FastOutSlowInEasing))
+            scanProgress.snapTo(0f); onFinished()
+        }
+    }
+
+    if (trigger) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width; val currentY = size.height * scanProgress.value
+            drawLine(colorScanner.copy(alpha = 0.3f * alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 5.dp.toPx(), StrokeCap.Round)
+            drawLine(colorScanner.copy(alpha = alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 2.dp.toPx(), StrokeCap.Round)
+            particulas.forEach { p ->
+                val px = (p.xRelativa * w) + (p.velocidadFlote * scanProgress.value)
+                val py = currentY + (p.yRelativa * size.height)
+                drawCircle(colorScanner, p.tamano.dp.toPx(), Offset(px, py), p.opacidadBase * alphaEfecto.value)
+            }
+        }
+    }
+}
+
+@Composable
 fun FocusRing(offset: Offset, onFinished: () -> Unit) {
     val scale = remember { Animatable(1.5f) }
     val alpha = remember { Animatable(1f) }
@@ -315,7 +294,7 @@ fun FocusRing(offset: Offset, onFinished: () -> Unit) {
 @Composable
 fun VisorMinimalistaOverlay() {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val colorVisor = Color.White.copy(alpha = 0.4f); val pad = 70.dp.toPx()
+        val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val colorVisor = Color.White.copy(alpha = 0.3f); val pad = 70.dp.toPx()
         drawArc(colorVisor, 180f, 90f, false, Offset(pad, pad + 100.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
         drawArc(colorVisor, 270f, 90f, false, Offset(w - pad - arcSize, pad + 100.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
         drawArc(colorVisor, 90f, 90f, false, Offset(pad, h - pad - arcSize - 150.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
@@ -328,6 +307,6 @@ fun tomarFotoTemporal(context: android.content.Context, imageCapture: ImageCaptu
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
     imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
         override fun onImageSaved(res: ImageCapture.OutputFileResults) { onResult(res.savedUri ?: Uri.fromFile(photoFile)) }
-        override fun onError(e: ImageCaptureException) { Log.e("BURBUJA_TECH", "Error: ${e.message}") }
+        override fun onError(e: ImageCaptureException) { Log.e("BURBUJA", "Error: ${e.message}") }
     })
 }
