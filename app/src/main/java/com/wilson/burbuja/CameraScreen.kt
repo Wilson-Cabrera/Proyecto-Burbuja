@@ -89,7 +89,6 @@ fun CameraScreen(
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var girandoCamara by remember { mutableStateOf(false) }
 
-    // --- ESTADO DE ZOOM OPTIMIZADO PARA EVITAR LAG ---
     var zoomLevel by remember { mutableFloatStateOf(1f) }
     var mostrarZoomLabel by remember { mutableStateOf(false) }
 
@@ -106,7 +105,8 @@ fun CameraScreen(
     ) { uri ->
         uri?.let {
             val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
-            navController.navigate("preview/$encodedUri")
+            // CORREGIDO: preview -> preview_screen
+            navController.navigate("preview_screen/$encodedUri")
         }
     }
 
@@ -131,7 +131,6 @@ fun CameraScreen(
                     scaleType = PreviewView.ScaleType.FILL_CENTER
                     preview.setSurfaceProvider(surfaceProvider)
 
-                    // GESTURE DETECTOR OPTIMIZADO
                     val detector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                         override fun onScale(d: ScaleGestureDetector): Boolean {
                             val sensibilidad = 3.5f
@@ -140,7 +139,6 @@ fun CameraScreen(
 
                             if (newZoom != zoomLevel) {
                                 zoomLevel = newZoom
-                                // Actualización directa al hardware
                                 cameraControl?.setLinearZoom((zoomLevel - 1f) / 4f)
                                 mostrarZoomLabel = true
                             }
@@ -174,7 +172,6 @@ fun CameraScreen(
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
 
-        // CARTEL DE ZOOM CON ANIMACIÓN LIGERA
         AnimatedVisibility(
             visible = mostrarZoomLabel,
             enter = fadeIn() + scaleIn(initialScale = 0.9f),
@@ -210,7 +207,8 @@ fun CameraScreen(
                         triggerScanner = true; delay(700); procesandoCaptura = true
                         tomarFotoTemporal(context, imageCapture) { uri ->
                             val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
-                            navController.navigate("preview/$encodedUri")
+                            // CORREGIDO: preview -> preview_screen
+                            navController.navigate("preview_screen/$encodedUri")
                             procesandoCaptura = false
                         }
                     }
@@ -234,8 +232,6 @@ fun CameraScreen(
         }
     }
 }
-
-// --- COMPONENTES AUXILIARES ---
 
 @Composable
 fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
