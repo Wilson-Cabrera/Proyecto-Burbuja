@@ -138,11 +138,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-
-
-                // --- CATEGORÍAS ---
-
-                // GÉNERO
+                // --- CATEGORÍAS (Género, Narrador, Tono, Ambiente) ---
                 CategorySection(title = "Género")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,7 +149,6 @@ fun StoryConfigurationScreen(
                     BurbujaChip(text = opciones[index], isSelected = generoSel == opciones[index], onClick = { generoSel = opciones[index] })
                 }
 
-                // NARRADOR
                 CategorySection(title = "Narrador")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -164,7 +159,6 @@ fun StoryConfigurationScreen(
                     BurbujaChip(text = opciones[index], isSelected = narradorSel == opciones[index], onClick = { narradorSel = opciones[index] })
                 }
 
-                // TONO
                 CategorySection(title = "Tono")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -175,7 +169,6 @@ fun StoryConfigurationScreen(
                     BurbujaChip(text = opciones[index], isSelected = tonoSel == opciones[index], onClick = { tonoSel = opciones[index] })
                 }
 
-                // AMBIENTE
                 CategorySection(title = "Ambiente")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -219,18 +212,12 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                //boton generarrrrrrrr--------
-
-
-
-                // 7. BOTÓN GENERAR
-                // Dentro de StoryConfigurationScreen.kt
-
-// 7. BOTÓN GENERAR
-// 7. BOTÓN GENERAR
+                // --- BOTÓN GENERAR CON INTEGRACIÓN DE DATOS ---
                 Button(
                     onClick = {
                         val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
+
+                        // 1. Creamos el objeto de datos con lo seleccionado
                         val dataParaIA = StoryData(
                             photoUri = photoUri,
                             genero = generoSel,
@@ -239,7 +226,13 @@ fun StoryConfigurationScreen(
                             ambiente = ambienteSel,
                             extra = promptExtra
                         )
-                        println("🐐 Cabra dice: ¡Mochila lista para la IA! -> $dataParaIA")
+
+                        // 2. LO GUARDAMOS EN EL HISTORIAL DE NAVEGACIÓN (Clave para que ResultScreen lo vea)
+                        navController.currentBackStackEntry?.savedStateHandle?.set("storyData", dataParaIA)
+
+                        println("🐐 Cabra dice: Mochila guardada y enviando a Loading -> $dataParaIA")
+
+                        // 3. Navegamos a la pantalla de carga
                         navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
@@ -252,20 +245,17 @@ fun StoryConfigurationScreen(
                         contentColor = Color.White
                     )
                 ) {
-                    // --- ESTO ES LO QUE TE FALTABA ---
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome, // El ícono de "magia"
+                            imageVector = Icons.Default.AutoAwesome,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                             tint = Color.White
                         )
-
                         Spacer(modifier = Modifier.width(10.dp))
-
                         Text(
                             text = "Generar",
                             color = Color.White,
@@ -276,14 +266,13 @@ fun StoryConfigurationScreen(
                     }
                 }
 
-// Espacio extra al final para que el scroll respire
                 Spacer(modifier = Modifier.height(50.dp))
             }
         }
     }
 }
 
-// Componente pequeño para los títulos de sección
+// --- COMPONENTES AUXILIARES ---
 @Composable
 fun CategorySection(title: String) {
     Spacer(modifier = Modifier.height(24.dp))

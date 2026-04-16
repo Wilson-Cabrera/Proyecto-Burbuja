@@ -1,15 +1,15 @@
 package com.wilson.burbuja
 
-/**
- * Esta es la "mochila" de datos.
- * Agrupa todo lo que necesitamos para armar el prompt de la IA.
- */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize // Le da el superpoder de viajar entre pantallas
 data class StoryData(
-    val photoUri: String,
-    val genero: String,
-    val narrador: String,
-    val tono: String,
-    val ambiente: String,
-    val extra: String,
+    val photoUri: String = "",
+    val genero: String = "",
+    val narrador: String = "",
+    val tono: String = "",
+    val ambiente: String = "",
+    val extra: String = "",
     val resultStory: String = ""
-)
+) : Parcelable // Se conecta con el sistema de Android

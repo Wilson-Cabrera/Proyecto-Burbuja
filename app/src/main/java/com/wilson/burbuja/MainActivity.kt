@@ -2,7 +2,6 @@ package com.wilson.burbuja
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -24,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,8 +50,11 @@ fun MainScreen() {
     val context = LocalContext.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
+
+    // La barra inferior solo aparece en las secciones principales
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
+    // --- GESTIÓN DE PERMISOS ---
     var tienePermiso by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -65,14 +66,13 @@ fun MainScreen() {
     )
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37),
+        containerColor = Color(0xFF1F2A37), // Azul Oscuro oficial
         bottomBar = {
             AnimatedVisibility(
                 visible = mostrarBottomBar,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                // Asegurate de tener este componente creado en tus otros archivos
                 NavegacionLiteral(navController = navController)
             }
         }
@@ -84,12 +84,9 @@ fun MainScreen() {
                 .fillMaxSize()
                 .background(Color(0xFF1F2A37))
         ) {
-            // --- INICIO ---
-            composable(
-                route = "inicio",
-                enterTransition = { fadeIn(tween(400)) },
-                exitTransition = { fadeOut(tween(400)) }
-            ) {
+
+            // 1. INICIO
+            composable("inicio") {
                 PantallaInicio(
                     paddingValues = paddingValues,
                     onAbrirCamara = {
@@ -102,84 +99,81 @@ fun MainScreen() {
             composable("galeria") { PantallaGaleria(paddingValues) }
             composable("guardados") { PantallaGuardados(paddingValues) }
 
-            // --- CÁMARA ---
+            // 2. CÁMARA
             composable(
                 route = "camara",
-                enterTransition = {
-                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(500)) + fadeIn()
-                },
-                exitTransition = { fadeOut(tween(500)) }
+                enterTransition = { slideInVertically(initialOffsetY = { it }) + fadeIn() },
+                exitTransition = { fadeOut() }
             ) {
-                CameraScreen(
-                    navController = navController,
-                    onBackClicked = { navController.popBackStack() }
-                )
+                CameraScreen(navController = navController, onBackClicked = { navController.popBackStack() })
             }
 
-            // --- PREVIEW ---
+            // 3. PREVIEW: Confirmación de la foto capturada
             composable(
                 route = "preview_screen/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
-                enterTransition = { fadeIn(tween(500)) },
-                exitTransition = { fadeOut(tween(400)) }
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
-                val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
-                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
-                PreviewScreen(navController = navController, photoUri = decodedUri)
+                val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
+                PreviewScreen(navController = navController, photoUri = uri)
             }
 
-            // --- CONFIGURACIÓN DEL CUENTO ---
+            // 4. CONFIGURACIÓN: Donde el usuario elige el estilo del cuento
             composable(
                 route = "story_configuration/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
-                enterTransition = { fadeIn(tween(500)) },
-                exitTransition = { fadeOut(tween(500)) }
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
-                val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
-                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
-
+                val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
                 StoryConfigurationScreen(
                     navController = navController,
-                    photoUri = decodedUri,
+                    photoUri = uri,
                     onBackClick = { navController.popBackStack() }
                 )
             }
 
-            // --- PANTALLA DE CARGA ---
+            // 5. CARGA: La animación de escaneo tecno
             composable(
                 route = "loading/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
-                enterTransition = { fadeIn(tween(400)) },
-                exitTransition = { fadeOut(tween(400)) }
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
-                val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
-                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
-
+                val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
                 LoadingScreen(
-                    photoUri = decodedUri,
+                    photoUri = uri,
                     onLoadingFinished = {
+                        // Navegamos al resultado y limpiamos la carga del historial
                         navController.navigate("result_screen") {
-                            // Limpiamos la pantalla de carga del historial
                             popUpTo("loading/{photoUri}") { inclusive = true }
                         }
                     }
                 )
             }
 
-            // --- PANTALLA DE RESULTADO (Placeholder) ---
-            composable("result_screen") {
-                Box(
-                    modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🚀 ¡Cuento generado con éxito!", color = Color.White, fontSize = 20.sp)
+            // 6. RESULTADO: La pantalla final de lectura
+            composable(
+                route = "result_screen",
+                enterTransition = { fadeIn(tween(700)) }
+            ) {
+                // Recuperamos el objeto StoryData guardado en el savedStateHandle
+                val storyData = remember {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<StoryData>("storyData") ?: StoryData()
                 }
+
+                ResultScreen(
+                    storyData = storyData,
+                    onBackClick = {
+                        navController.popBackStack("inicio", inclusive = false)
+                    },
+                    onGenerateAnother = {
+                        navController.popBackStack("story_configuration/{photoUri}", inclusive = false)
+                    }
+                )
             }
         }
     }
 }
 
-// --- COMPONENTES DE APOYO (Fuera de MainScreen) ---
+// --- COMPONENTES DE APOYO ---
 
 @Composable
 fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
@@ -191,20 +185,17 @@ fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800)) + slideInVertically(initialOffsetY = { -20 })) {
+            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800))) {
                 Text(
                     text = "¿Qué historia hay a tu alrededor hoy?",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 15.sp,
                     textAlign = TextAlign.Center,
-                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Light
                 )
             }
             Spacer(modifier = Modifier.height(40.dp))
-            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800, 200)) + slideInVertically(initialOffsetY = { 20 })) {
-                BotonCamaraPrincipal(onClick = onAbrirCamara)
-            }
+            BotonCamaraPrincipal(onClick = onAbrirCamara)
         }
     }
 }
@@ -221,7 +212,7 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = "Abrir la cámara", fontSize = 16.sp, fontWeight = FontWeight.Normal, color = Color.White.copy(alpha = 0.8f))
+            Text(text = "Abrir la cámara", fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f))
         }
     }
 }
