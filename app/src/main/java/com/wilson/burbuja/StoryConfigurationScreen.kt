@@ -224,39 +224,54 @@ fun StoryConfigurationScreen(
 
 
                 // 7. BOTÓN GENERAR
+                // Dentro de StoryConfigurationScreen.kt
+
+// 7. BOTÓN GENERAR
+// 7. BOTÓN GENERAR
                 Button(
                     onClick = {
-                        // Por ahora no hace nada, acá irá la lógica para llamar a la IA
+                        val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
+                        val dataParaIA = StoryData(
+                            photoUri = photoUri,
+                            genero = generoSel,
+                            narrador = narradorSel,
+                            tono = tonoSel,
+                            ambiente = ambienteSel,
+                            extra = promptExtra
+                        )
+                        println("🐐 Cabra dice: ¡Mochila lista para la IA! -> $dataParaIA")
+                        navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .shadow(8.dp, RoundedCornerShape(28.dp)), // Sutil sombra para que flote
+                        .shadow(8.dp, RoundedCornerShape(28.dp)),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF74A9D2), // Tu color azul grisáceo del diseño
+                        containerColor = Color(0xFF74A9D2),
                         contentColor = Color.White
-                    ),
-                    contentPadding = PaddingValues(horizontal = 24.dp)
+                    )
                 ) {
+                    // --- ESTO ES LO QUE TE FALTABA ---
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome, // El icono de "magia/IA" de Material
+                            imageVector = Icons.Default.AutoAwesome, // El ícono de "magia"
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
+                            tint = Color.White
                         )
 
                         Spacer(modifier = Modifier.width(10.dp))
 
                         Text(
                             text = "Generar",
+                            color = Color.White,
                             fontSize = 18.sp,
                             fontFamily = Inter,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }

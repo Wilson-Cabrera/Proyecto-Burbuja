@@ -2,6 +2,7 @@ package com.wilson.burbuja
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -71,7 +72,7 @@ fun MainScreen() {
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                // Asegurate de tener este componente creado o placeholder (barra de navegacion)
+                // Asegurate de tener este componente creado en tus otros archivos
                 NavegacionLiteral(navController = navController)
             }
         }
@@ -79,7 +80,9 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF1F2A37))
         ) {
             // --- INICIO ---
             composable(
@@ -125,7 +128,7 @@ fun MainScreen() {
                 PreviewScreen(navController = navController, photoUri = decodedUri)
             }
 
-            // --- CONFIGURACIÓN DEL CUENTO (NUEVA RUTA) ---
+            // --- CONFIGURACIÓN DEL CUENTO ---
             composable(
                 route = "story_configuration/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
@@ -141,11 +144,42 @@ fun MainScreen() {
                     onBackClick = { navController.popBackStack() }
                 )
             }
+
+            // --- PANTALLA DE CARGA ---
+            composable(
+                route = "loading/{photoUri}",
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
+                enterTransition = { fadeIn(tween(400)) },
+                exitTransition = { fadeOut(tween(400)) }
+            ) { backStackEntry ->
+                val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
+                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
+
+                LoadingScreen(
+                    photoUri = decodedUri,
+                    onLoadingFinished = {
+                        navController.navigate("result_screen") {
+                            // Limpiamos la pantalla de carga del historial
+                            popUpTo("loading/{photoUri}") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // --- PANTALLA DE RESULTADO (Placeholder) ---
+            composable("result_screen") {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🚀 ¡Cuento generado con éxito!", color = Color.White, fontSize = 20.sp)
+                }
+            }
         }
     }
 }
 
-// --- COMPONENTES DE APOYO ---
+// --- COMPONENTES DE APOYO (Fuera de MainScreen) ---
 
 @Composable
 fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
