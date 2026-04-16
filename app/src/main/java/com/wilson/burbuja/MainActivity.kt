@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +71,7 @@ fun MainScreen() {
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
+                // Asegurate de tener este componente creado o placeholder (barra de navegacion)
                 NavegacionLiteral(navController = navController)
             }
         }
@@ -79,9 +79,9 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            // ELIMINA EL NEGRO: El NavHost ahora tiene tu azul de fondo
             modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))
         ) {
+            // --- INICIO ---
             composable(
                 route = "inicio",
                 enterTransition = { fadeIn(tween(400)) },
@@ -99,15 +99,13 @@ fun MainScreen() {
             composable("galeria") { PantallaGaleria(paddingValues) }
             composable("guardados") { PantallaGuardados(paddingValues) }
 
+            // --- CÁMARA ---
             composable(
                 route = "camara",
                 enterTransition = {
                     slideInVertically(initialOffsetY = { it }, animationSpec = tween(500)) + fadeIn()
                 },
-                exitTransition = { fadeOut(tween(500)) },
-                popExitTransition = {
-                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(500)) + fadeOut()
-                }
+                exitTransition = { fadeOut(tween(500)) }
             ) {
                 CameraScreen(
                     navController = navController,
@@ -115,6 +113,7 @@ fun MainScreen() {
                 )
             }
 
+            // --- PREVIEW ---
             composable(
                 route = "preview_screen/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
@@ -125,11 +124,29 @@ fun MainScreen() {
                 val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
                 PreviewScreen(navController = navController, photoUri = decodedUri)
             }
+
+            // --- CONFIGURACIÓN DEL CUENTO (NUEVA RUTA) ---
+            composable(
+                route = "story_configuration/{photoUri}",
+                arguments = listOf(navArgument("photoUri") { type = NavType.StringType }),
+                enterTransition = { fadeIn(tween(500)) },
+                exitTransition = { fadeOut(tween(500)) }
+            ) { backStackEntry ->
+                val encodedUri = backStackEntry.arguments?.getString("photoUri") ?: ""
+                val decodedUri = URLDecoder.decode(encodedUri, StandardCharsets.UTF_8.toString())
+
+                StoryConfigurationScreen(
+                    navController = navController,
+                    photoUri = decodedUri,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
 
-// (Mantené PantallaInicio, BotonCamaraPrincipal y placeholders igual que antes)
+// --- COMPONENTES DE APOYO ---
+
 @Composable
 fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
     var startAnim by remember { mutableStateOf(false) }
@@ -141,7 +158,14 @@ fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800)) + slideInVertically(initialOffsetY = { -20 })) {
-                Text(text = "¿Qué historia hay a tu alrededor hoy?", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, textAlign = TextAlign.Center, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Light)
+                Text(
+                    text = "¿Qué historia hay a tu alrededor hoy?",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center,
+                    fontFamily = FontFamily.SansSerif,
+                    fontWeight = FontWeight.Light
+                )
             }
             Spacer(modifier = Modifier.height(40.dp))
             AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800, 200)) + slideInVertically(initialOffsetY = { 20 })) {
