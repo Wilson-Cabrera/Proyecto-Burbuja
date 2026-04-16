@@ -51,10 +51,8 @@ fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
-    // La barra inferior solo aparece en las secciones principales
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
-    // --- GESTIÓN DE PERMISOS ---
     var tienePermiso by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -66,7 +64,7 @@ fun MainScreen() {
     )
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37), // Azul Oscuro oficial
+        containerColor = Color(0xFF1F2A37),
         bottomBar = {
             AnimatedVisibility(
                 visible = mostrarBottomBar,
@@ -80,9 +78,7 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF1F2A37))
+            modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))
         ) {
 
             // 1. INICIO
@@ -108,7 +104,7 @@ fun MainScreen() {
                 CameraScreen(navController = navController, onBackClicked = { navController.popBackStack() })
             }
 
-            // 3. PREVIEW: Confirmación de la foto capturada
+            // 3. PREVIEW
             composable(
                 route = "preview_screen/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
@@ -117,7 +113,7 @@ fun MainScreen() {
                 PreviewScreen(navController = navController, photoUri = uri)
             }
 
-            // 4. CONFIGURACIÓN: Donde el usuario elige el estilo del cuento
+            // 4. CONFIGURACIÓN
             composable(
                 route = "story_configuration/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
@@ -130,16 +126,16 @@ fun MainScreen() {
                 )
             }
 
-            // 5. CARGA: La animación de escaneo tecno
+            // 5. CARGA: ¡CAMBIO AQUÍ! Pasamos el navController
             composable(
                 route = "loading/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
                 LoadingScreen(
+                    navController = navController, // Ahora LoadingScreen puede inyectar el cuento
                     photoUri = uri,
                     onLoadingFinished = {
-                        // Navegamos al resultado y limpiamos la carga del historial
                         navController.navigate("result_screen") {
                             popUpTo("loading/{photoUri}") { inclusive = true }
                         }
@@ -147,12 +143,11 @@ fun MainScreen() {
                 )
             }
 
-            // 6. RESULTADO: La pantalla final de lectura
+            // 6. RESULTADO
             composable(
                 route = "result_screen",
                 enterTransition = { fadeIn(tween(700)) }
             ) {
-                // Recuperamos el objeto StoryData guardado en el savedStateHandle
                 val storyData = remember {
                     navController.previousBackStackEntry
                         ?.savedStateHandle

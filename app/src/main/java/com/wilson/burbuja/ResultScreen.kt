@@ -1,5 +1,8 @@
 package com.wilson.burbuja
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,9 +13,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -21,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
 
 @Composable
 fun ResultScreen(
@@ -28,28 +34,53 @@ fun ResultScreen(
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit
 ) {
-    // Estado para controlar el desplazamiento del texto largo
     val scrollState = rememberScrollState()
 
-    // Usamos Box para encimar elementos (Foto -> Gradiente -> Contenido)
+    // --- LÓGICA DE ESCRITURA (Typewriter) ---
+    val cuentoCompleto = if (storyData.resultStory.isEmpty()) {
+        "Había una vez un fragmento de realidad capturado por una lente mágica... " +
+                "Burbuja está procesando la historia basada en el género ${storyData.genero}."
+    } else {
+        storyData.resultStory
+    }
+
+    var textoMostrado by remember { mutableStateOf("") }
+
+    // Cada vez que cambie el cuento, reiniciamos la escritura
+    LaunchedEffect(cuentoCompleto) {
+        textoMostrado = ""
+        cuentoCompleto.forEachIndexed { index, _ ->
+            textoMostrado = cuentoCompleto.substring(0, index + 1)
+            delay(15) // Velocidad: 15ms por letra
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1F2A37)) // Azul Navy de Burbuja
+            .background(Color(0xFF0F172A)) // Fondo un poco más oscuro para que resalte el Glow
     ) {
+        // --- CAPA 1: GLOW TECNOLÓGICO (Identidad de IA) ---
+        Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
+            drawCircle(
+                color = Color(0xFF6A5CFF).copy(alpha = 0.15f),
+                radius = size.minDimension / 1.2f,
+                center = Offset(size.width * 0.9f, size.height * 0.3f)
+            )
+        }
 
-        // --- CAPA 1: LA IMAGEN DE FONDO ---
+        // --- CAPA 2: LA FOTO ---
         AsyncImage(
             model = storyData.photoUri,
-            contentDescription = "Foto capturada",
+            contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.65f), // Ocupa un poco más de la mitad para lucirse
-            contentScale = ContentScale.Crop
+                .fillMaxHeight(0.65f),
+            contentScale = ContentScale.Crop,
+            alpha = 0.6f // Un poco de transparencia para que se mezcle con el fondo
         )
 
-        // --- CAPA 2: EL GRADIENTE (Truco de diseño para legibilidad) ---
-        // Va de transparente total a azul sólido para "fundir" la foto con el fondo
+        // --- CAPA 3: DEGRADADO SUAVE ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -57,124 +88,111 @@ fun ResultScreen(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color(0xFF1F2A37).copy(alpha = 0.5f), // Punto medio de transición
-                            Color(0xFF1F2A37) // Azul sólido abajo
+                            Color(0xFF0F172A).copy(alpha = 0.7f),
+                            Color(0xFF0F172A)
                         ),
-                        startY = 0f,
-                        endY = 1200f // Estiramos el degradado para suavizarlo
+                        startY = 300f
                     )
                 )
         )
 
-        // --- CAPA 3: ELEMENTOS FIJOS (Botón de volver) ---
+        // --- CAPA 4: BOTÓN VOLVER ---
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
-                .statusBarsPadding() // Respeta el espacio de la batería/reloj
+                .statusBarsPadding()
                 .padding(16.dp)
                 .align(Alignment.TopStart)
-                .background(Color.Black.copy(alpha = 0.3f), CircleShape) // Fondo sutil para contraste
+                .background(Color.Black.copy(alpha = 0.2f), CircleShape)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                tint = Color.White
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
         }
 
-        // --- CAPA 4: CONTENIDO SCROLLABLE (Título + Cuento + Botones) ---
+        // --- CAPA 5: CONTENIDO ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 28.dp)
         ) {
-            // Espacio vacío para que el texto empiece justo al final de la foto
-            Spacer(modifier = Modifier.height(320.dp))
+            Spacer(modifier = Modifier.height(340.dp))
 
-            // TÍTULO DEL CUENTO (Flotando sobre la transición de la foto)
+            // CHIPS DE DATOS (Muestra las elecciones del usuario)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                listOf(storyData.genero, storyData.tono, storyData.ambiente).forEach { tag ->
+                    Surface(
+                        color = Color(0xFF7B61FF).copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(0.5.dp, Color(0xFF7B61FF).copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = tag.uppercase(),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontSize = 10.sp,
+                            color = Color(0xFF7ACAFF),
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+            }
+
+            // TÍTULO
             Text(
-                text = "Las aventuras de los ojos viajeros",
+                text = "Fragmentos de Realidad",
                 color = Color.White,
                 fontSize = 28.sp,
                 fontFamily = IBMPlexSans,
                 fontWeight = FontWeight.Bold,
-                lineHeight = 36.sp,
-                modifier = Modifier.fillMaxWidth()
+                lineHeight = 34.sp
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // CUERPO DEL CUENTO (El texto generado por la IA)
+            // EL CUENTO (Con efecto typewriter)
             Text(
-                text = if (storyData.resultStory.isEmpty()) {
-                    "Había una vez un fragmento de realidad capturado por una lente mágica... \n\n" +
-                            "Aquí es donde la inteligencia artificial de Burbuja escribirá la historia basándose " +
-                            "en el género ${storyData.genero} y el tono ${storyData.tono} que elegiste."
-                } else {
-                    storyData.resultStory
-                },
-                color = Color.White.copy(alpha = 0.85f),
+                text = textoMostrado,
+                color = Color.White.copy(alpha = 0.9f),
                 fontSize = 17.sp,
                 fontFamily = Inter,
-                lineHeight = 28.sp,
+                lineHeight = 30.sp, // Interlineado cómodo para leer
                 textAlign = TextAlign.Start
             )
 
             Spacer(modifier = Modifier.height(60.dp))
 
-            // --- BOTONES INFERIORES (Fieles al diseño Figma) ---
+            // BOTONES
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 50.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 50.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Botón "Generar otra versión"
                 Button(
                     onClick = onGenerateAnother,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF7ACAFF).copy(alpha = 0.15f) // Estilo traslúcido tecno
-                    )
+                        containerColor = Color(0xFF7ACAFF).copy(alpha = 0.1f)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.2f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = Color(0xFF7ACAFF)
-                    )
+                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF7ACAFF))
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Generar otra versión",
-                        color = Color(0xFF7ACAFF),
-                        fontFamily = Inter,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text("Nueva versión", color = Color(0xFF7ACAFF), fontFamily = Inter)
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Círculo distintivo "W"
                 Surface(
                     modifier = Modifier.size(56.dp),
                     shape = CircleShape,
-                    color = Color(0xFF7ACAFF).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = 1.dp,
-                        color = Color(0xFF7ACAFF).copy(alpha = 0.3f)
-                    )
+                    color = Color(0xFF7B61FF).copy(alpha = 0.2f),
+                    border = BorderStroke(1.dp, Color(0xFF7B61FF).copy(alpha = 0.4f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "W",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
+                        Text("W", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
