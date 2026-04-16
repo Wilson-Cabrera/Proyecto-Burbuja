@@ -4,10 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,18 +45,19 @@ val Inter = FontFamily(
     Font(R.font.inter_variable, FontWeight.Bold)
 )
 
-@OptIn(ExperimentalLayoutApi::class) // Necesario para ContextualFlowRow
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StoryConfigurationScreen(
     navController: NavController,
     photoUri: String,
     onBackClick: () -> Unit = {}
 ) {
-    // 1. ESTADOS (Siempre arriba de todo)
+    // 1. ESTADOS
     var generoSel by remember { mutableStateOf("Misterio") }
     var narradorSel by remember { mutableStateOf("Primera persona") }
     var tonoSel by remember { mutableStateOf("Oscuro") }
     var ambienteSel by remember { mutableStateOf("Noche") }
+    var promptExtra by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
 
@@ -62,12 +66,12 @@ fun StoryConfigurationScreen(
         AsyncImage(
             model = photoUri,
             contentDescription = null,
-            modifier = Modifier.fillMaxSize().blur(30.dp),
+            modifier = Modifier.fillMaxSize().blur(10.dp),
             contentScale = ContentScale.Crop
         )
 
         // FILTRO NAVY
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.60f)))
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.5f)))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -79,10 +83,10 @@ fun StoryConfigurationScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
                     .padding(horizontal = 24.dp)
-                    .verticalScroll(scrollState), // Habilitamos scroll para que entren todos los chips
+                    .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 4. BOTÓN VOLVER
+                // BOTÓN VOLVER
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
@@ -97,13 +101,15 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 5. TÍTULOS
+                // TÍTULOS
                 Text(
                     text = "Dale forma a tu cuento",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontFamily = IBMPlexSans,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Text(
@@ -111,12 +117,14 @@ fun StoryConfigurationScreen(
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 13.sp,
                     fontFamily = Inter,
-                    fontWeight = FontWeight.Light
+                    fontWeight = FontWeight.Light,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 6. PREVISUALIZACIÓN (La subí antes de los chips como estaba en tu idea original)
+                // PREVISUALIZACIÓN
                 AsyncImage(
                     model = photoUri,
                     contentDescription = "Foto miniatura",
@@ -130,129 +138,155 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // --- SECCIÓN: GÉNERO ---
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Género",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontFamily = IBMPlexSans,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.align(Alignment.Start)
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                        thickness = 1.dp,
-                        color = Color(0xFF7ACAFF).copy(alpha = 0.7f)
-                    )
-                }
 
+
+                // --- CATEGORÍAS ---
+
+                // GÉNERO
+                CategorySection(title = "Género")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     itemCount = 5
                 ) { index ->
                     val opciones = listOf("Aventura", "Misterio", "Fantasía", "Terror", "Ciencia ficción")
-                    val texto = opciones[index]
-
-                    BurbujaChip(
-                        text = texto,
-                        isSelected = generoSel == texto,
-                        onClick = { generoSel = texto }
-                    )
+                    BurbujaChip(text = opciones[index], isSelected = generoSel == opciones[index], onClick = { generoSel = opciones[index] })
                 }
 
-                // --- SECCIÓN: NARRADOR ---
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "Narrador", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
-                }
-
+                // NARRADOR
+                CategorySection(title = "Narrador")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     itemCount = 3
                 ) { index ->
                     val opciones = listOf("Primera persona", "Tercera persona", "Omnisciente")
-                    val texto = opciones[index]
-                    BurbujaChip(text = texto, isSelected = narradorSel == texto, onClick = { narradorSel = texto })
+                    BurbujaChip(text = opciones[index], isSelected = narradorSel == opciones[index], onClick = { narradorSel = opciones[index] })
                 }
 
-                // --- SECCIÓN: NARRADOR ---
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "Tono", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
-                }
-
+                // TONO
+                CategorySection(title = "Tono")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     itemCount = 3
                 ) { index ->
                     val opciones = listOf("Divertido", "Oscuro", "Épico")
-                    val texto = opciones[index]
-                    BurbujaChip(text = texto, isSelected = tonoSel == texto, onClick = { tonoSel = texto })
+                    BurbujaChip(text = opciones[index], isSelected = tonoSel == opciones[index], onClick = { tonoSel = opciones[index] })
                 }
 
-                // --- SECCIÓN: AMBIENTE ---
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "Ambiente", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
-                }
-
+                // AMBIENTE
+                CategorySection(title = "Ambiente")
                 ContextualFlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     itemCount = 4
                 ) { index ->
                     val opciones = listOf("Día", "Noche", "Futuro", "Antiguo")
-                    val texto = opciones[index]
-                    BurbujaChip(text = texto, isSelected = ambienteSel == texto, onClick = { ambienteSel = texto })
+                    BurbujaChip(text = opciones[index], isSelected = ambienteSel == opciones[index], onClick = { ambienteSel = opciones[index] })
                 }
 
-
-
                 Spacer(modifier = Modifier.height(32.dp))
+
+                // AGREGAR ALGO EXTRA
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "Agrega algo a tu historia...", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
+                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = Color(0xFF74A9D2).copy(alpha = 0.5f))
+                }
+
+                OutlinedTextField(
+                    value = promptExtra,
+                    onValueChange = { promptExtra = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    placeholder = { Text(text = "Por ejemplo: que tenga un final inesperado...", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp, fontFamily = Inter) },
+                    leadingIcon = {
+                        Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = Color(0xFF7B61FF)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFF7B61FF),
+                        focusedBorderColor = Color(0xFF74A9D2),
+                        unfocusedBorderColor = Color(0xFF74A9D2).copy(alpha = 0.8f),
+                        focusedContainerColor = Color(0xFF74A9D2).copy(alpha = 0.1f)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                //boton generarrrrrrrr--------
+
+
+
+                // 7. BOTÓN GENERAR
+                Button(
+                    onClick = {
+                        // Por ahora no hace nada, acá irá la lógica para llamar a la IA
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .shadow(8.dp, RoundedCornerShape(28.dp)), // Sutil sombra para que flote
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF74A9D2), // Tu color azul grisáceo del diseño
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 24.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome, // El icono de "magia/IA" de Material
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "Generar",
+                            fontSize = 18.sp,
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+// Espacio extra al final para que el scroll respire
+                Spacer(modifier = Modifier.height(50.dp))
             }
         }
     }
 }
 
+// Componente pequeño para los títulos de sección
 @Composable
-fun BurbujaChip(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
+fun CategorySection(title: String) {
+    Spacer(modifier = Modifier.height(24.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = title, color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.Start))
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
+    }
+}
+
+@Composable
+fun BurbujaChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-
-        // --- CAMBIO AQUÍ: Relleno para el estado no seleccionado ---
-        color = if (isSelected) {
-            Color(0xFF7B61FF) // Violeta si está seleccionado
-        } else {
-            Color(0xFF1F2A37).copy(alpha = 0.4f) // Relleno sutil del azul 74A9D2
-        },
-
+        color = if (isSelected) Color(0xFF7B61FF) else Color(0xFF1F2A37).copy(alpha = 0.4f),
         border = if (isSelected) null else BorderStroke(1.dp, Color(0xFF74A9D2).copy(alpha = 0.9f)),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
-        Text(
-            text = text,
-            color = if (isSelected) Color(0xFF0F172A) else Color.White,
-            fontSize = 14.sp,
-            fontFamily = Inter,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        Text(text = text, color = if (isSelected) Color(0xFF0F172A) else Color.White, fontSize = 14.sp, fontFamily = Inter, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
