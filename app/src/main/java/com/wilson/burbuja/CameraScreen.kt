@@ -253,12 +253,15 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Bool
     }
 }
 
+
+
+//controles de la camara capsulaaaaaa
 @Composable
 fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit, onSwitchCameraClick: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(bottom = 40.dp, start = 24.dp, end = 24.dp)
-            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
+            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.0f))
+            .border(0.5.dp, Color.White.copy(alpha = 0.0f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape).clickable { onGalleryClick() }, contentAlignment = Alignment.Center) {

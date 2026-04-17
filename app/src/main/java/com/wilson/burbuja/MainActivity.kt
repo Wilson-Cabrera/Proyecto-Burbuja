@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -37,6 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            // Aplicamos el sistema de diseño (Colores y Tipografías) definido en el Theme
             BurbujaTheme {
                 MainScreen()
             }
@@ -46,26 +46,36 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
+    // --- GESTIÓN DE NAVEGACIÓN ---
+    // El navController es el objeto central que maneja el historial y los cambios de pantalla
     val navController = rememberNavController()
     val context = LocalContext.current
+
+    // Obtenemos el estado de la ruta actual para lógica de UI (como la BottomBar)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
+    // Decidimos si mostrar la barra inferior dependiendo de si estamos en las secciones principales
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
+    // --- GESTIÓN DE PERMISOS ---
+    // Verificamos si el usuario ya otorgó acceso a la cámara
     var tienePermiso by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+
+    // Launcher para solicitar el permiso de forma reactiva en Compose
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { concedido -> tienePermiso = concedido }
     )
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37),
+        containerColor = Color(0xFF1F2A37), // Color base de la identidad visual
         bottomBar = {
+            // La barra de navegación inferior aparece con una transición suave
             AnimatedVisibility(
                 visible = mostrarBottomBar,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -75,16 +85,20 @@ fun MainScreen() {
             }
         }
     ) { paddingValues ->
+        // --- NAVHOST: EL MAPA DE RUTAS ---
         NavHost(
             navController = navController,
             startDestination = "inicio",
-            modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // El padding del Scaffold evita que el contenido tape la barra
+                .background(Color(0xFF1F2A37))
         ) {
 
-            // 1. INICIO
+            // 1. PANTALLAS DE MENÚ PRINCIPAL
             composable("inicio") {
                 PantallaInicio(
-                    paddingValues = paddingValues,
+                    paddingValues = PaddingValues(0.dp),
                     onAbrirCamara = {
                         if (tienePermiso) navController.navigate("camara")
                         else launcher.launch(Manifest.permission.CAMERA)
@@ -92,10 +106,10 @@ fun MainScreen() {
                 )
             }
 
-            composable("galeria") { PantallaGaleria(paddingValues) }
-            composable("guardados") { PantallaGuardados(paddingValues) }
+            composable("galeria") { PantallaGaleria(PaddingValues(0.dp)) }
+            composable("guardados") { PantallaGuardados(PaddingValues(0.dp)) }
 
-            // 2. CÁMARA
+            // 2. FLUJO DE CREACIÓN DE HISTORIAS
             composable(
                 route = "camara",
                 enterTransition = { slideInVertically(initialOffsetY = { it }) + fadeIn() },
@@ -104,7 +118,6 @@ fun MainScreen() {
                 CameraScreen(navController = navController, onBackClicked = { navController.popBackStack() })
             }
 
-            // 3. PREVIEW
             composable(
                 route = "preview_screen/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
@@ -113,7 +126,6 @@ fun MainScreen() {
                 PreviewScreen(navController = navController, photoUri = uri)
             }
 
-            // 4. CONFIGURACIÓN
             composable(
                 route = "story_configuration/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
@@ -126,16 +138,18 @@ fun MainScreen() {
                 )
             }
 
-            // 5. CARGA: ¡CAMBIO AQUÍ! Pasamos el navController
+            // 3. PANTALLA DE CARGA (PROCESAMIENTO)
             composable(
                 route = "loading/{photoUri}",
                 arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
             ) { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
                 LoadingScreen(
-                    navController = navController, // Ahora LoadingScreen puede inyectar el cuento
+                    navController = navController,
                     photoUri = uri,
                     onLoadingFinished = {
+                        // REGLA DE ORO: Navegamos al resultado y eliminamos la carga del historial
+                        // Esto permite que el botón "Atrás" en el resultado vuelva a la configuración.
                         navController.navigate("result_screen") {
                             popUpTo("loading/{photoUri}") { inclusive = true }
                         }
@@ -143,11 +157,12 @@ fun MainScreen() {
                 )
             }
 
-            // 6. RESULTADO
+            // 4. PANTALLA DE RESULTADO FINAL
             composable(
                 route = "result_screen",
                 enterTransition = { fadeIn(tween(700)) }
             ) {
+                // Recuperamos el objeto StoryData que fue actualizado en la pantalla anterior
                 val storyData = remember {
                     navController.previousBackStackEntry
                         ?.savedStateHandle
@@ -157,10 +172,12 @@ fun MainScreen() {
                 ResultScreen(
                     storyData = storyData,
                     onBackClick = {
-                        navController.popBackStack("inicio", inclusive = false)
+                        // Vuelve a la configuración gracias a que quitamos 'loading' del historial
+                        navController.popBackStack()
                     },
                     onGenerateAnother = {
-                        navController.popBackStack("story_configuration/{photoUri}", inclusive = false)
+                        // Permite al usuario re-ajustar parámetros
+                        navController.popBackStack()
                     }
                 )
             }
@@ -168,24 +185,26 @@ fun MainScreen() {
     }
 }
 
-// --- COMPONENTES DE APOYO ---
+// --- COMPONENTES DE APOYO (RECURSOS QUE FALTABAN) ---
 
 @Composable
 fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
     var startAnim by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { startAnim = true }
+
     Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800))) {
+            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800)) + slideInVertically()) {
                 Text(
                     text = "¿Qué historia hay a tu alrededor hoy?",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 15.sp,
                     textAlign = TextAlign.Center,
+                    fontFamily = Inter,
                     fontWeight = FontWeight.Light
                 )
             }
@@ -212,5 +231,6 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
     }
 }
 
-@Composable fun PantallaGaleria(p: PaddingValues) { Box(Modifier.fillMaxSize().padding(p).background(Color(0xFF1F2A37))) }
-@Composable fun PantallaGuardados(p: PaddingValues) { Box(Modifier.fillMaxSize().padding(p).background(Color(0xFF1F2A37))) }
+// Placeholders para evitar errores de referencia en el NavHost
+@Composable fun PantallaGaleria(p: PaddingValues) { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
+@Composable fun PantallaGuardados(p: PaddingValues) { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
