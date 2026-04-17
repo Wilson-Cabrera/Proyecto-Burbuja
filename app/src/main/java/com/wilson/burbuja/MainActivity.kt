@@ -36,7 +36,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Aplicamos el sistema de diseño (Colores y Tipografías) definido en el Theme
             BurbujaTheme {
                 MainScreen()
             }
@@ -46,169 +45,84 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
-    // --- GESTIÓN DE NAVEGACIÓN ---
-    // El navController es el objeto central que maneja el historial y los cambios de pantalla
     val navController = rememberNavController()
     val context = LocalContext.current
-
-    // Obtenemos el estado de la ruta actual para lógica de UI (como la BottomBar)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
-
-    // Decidimos si mostrar la barra inferior dependiendo de si estamos en las secciones principales
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
-    // --- GESTIÓN DE PERMISOS ---
-    // Verificamos si el usuario ya otorgó acceso a la cámara
     var tienePermiso by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        )
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
-
-    // Launcher para solicitar el permiso de forma reactiva en Compose
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { concedido -> tienePermiso = concedido }
     )
 
     Scaffold(
-        containerColor = Color(0xFF1F2A37), // Color base de la identidad visual
+        containerColor = Color(0xFF1F2A37),
         bottomBar = {
-            // La barra de navegación inferior aparece con una transición suave
-            AnimatedVisibility(
-                visible = mostrarBottomBar,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
+            AnimatedVisibility(visible = mostrarBottomBar, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                 NavegacionLiteral(navController = navController)
             }
         }
     ) { paddingValues ->
-        // --- NAVHOST: EL MAPA DE RUTAS ---
-        NavHost(
-            navController = navController,
-            startDestination = "inicio",
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues) // El padding del Scaffold evita que el contenido tape la barra
-                .background(Color(0xFF1F2A37))
-        ) {
+        NavHost(navController = navController, startDestination = "inicio", modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            // 1. PANTALLAS DE MENÚ PRINCIPAL
             composable("inicio") {
-                PantallaInicio(
-                    paddingValues = PaddingValues(0.dp),
-                    onAbrirCamara = {
-                        if (tienePermiso) navController.navigate("camara")
-                        else launcher.launch(Manifest.permission.CAMERA)
-                    }
-                )
+                PantallaInicio(onAbrirCamara = {
+                    if (tienePermiso) navController.navigate("camara") else launcher.launch(Manifest.permission.CAMERA)
+                })
             }
+            composable("galeria") { PantallaGaleria() }
+            composable("guardados") { PantallaGuardados() }
 
-            composable("galeria") { PantallaGaleria(PaddingValues(0.dp)) }
-            composable("guardados") { PantallaGuardados(PaddingValues(0.dp)) }
+            composable("camara") { CameraScreen(navController, onBackClicked = { navController.popBackStack() }) }
 
-            // 2. FLUJO DE CREACIÓN DE HISTORIAS
-            composable(
-                route = "camara",
-                enterTransition = { slideInVertically(initialOffsetY = { it }) + fadeIn() },
-                exitTransition = { fadeOut() }
-            ) {
-                CameraScreen(navController = navController, onBackClicked = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "preview_screen/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
-            ) { backStackEntry ->
+            composable("preview_screen/{photoUri}") { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
-                PreviewScreen(navController = navController, photoUri = uri)
+                PreviewScreen(navController, uri)
             }
 
-            composable(
-                route = "story_configuration/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
-            ) { backStackEntry ->
+            composable("story_configuration/{photoUri}") { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
-                StoryConfigurationScreen(
-                    navController = navController,
-                    photoUri = uri,
-                    onBackClick = { navController.popBackStack() }
-                )
+                StoryConfigurationScreen(navController, uri, onBackClick = { navController.popBackStack() })
             }
 
-            // 3. PANTALLA DE CARGA (PROCESAMIENTO)
-            composable(
-                route = "loading/{photoUri}",
-                arguments = listOf(navArgument("photoUri") { type = NavType.StringType })
-            ) { backStackEntry ->
+            composable("loading/{photoUri}") { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
-                LoadingScreen(
-                    navController = navController,
-                    photoUri = uri,
-                    onLoadingFinished = {
-                        // REGLA DE ORO: Navegamos al resultado y eliminamos la carga del historial
-                        // Esto permite que el botón "Atrás" en el resultado vuelva a la configuración.
-                        navController.navigate("result_screen") {
-                            popUpTo("loading/{photoUri}") { inclusive = true }
-                        }
-                    }
-                )
+                LoadingScreen(navController, uri, onLoadingFinished = {
+                    navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } }
+                })
             }
 
-            // 4. PANTALLA DE RESULTADO FINAL
-            composable(
-                route = "result_screen",
-                enterTransition = { fadeIn(tween(700)) }
-            ) {
-                // Recuperamos el objeto StoryData que fue actualizado en la pantalla anterior
+            composable("result_screen") {
                 val storyData = remember {
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.get<StoryData>("storyData") ?: StoryData()
+                    navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData") ?: StoryData()
                 }
-
                 ResultScreen(
                     storyData = storyData,
-                    onBackClick = {
-                        // Vuelve a la configuración gracias a que quitamos 'loading' del historial
-                        navController.popBackStack()
-                    },
-                    onGenerateAnother = {
-                        // Permite al usuario re-ajustar parámetros
-                        navController.popBackStack()
-                    }
+                    onBackClick = { navController.popBackStack() },
+                    onGenerateAnother = { navController.popBackStack() }
                 )
             }
         }
     }
 }
 
-// --- COMPONENTES DE APOYO (RECURSOS QUE FALTABAN) ---
+// --- COMPONENTES DE APOYO ---
 
 @Composable
-fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
-    var startAnim by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { startAnim = true }
-
-    Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            AnimatedVisibility(visible = startAnim, enter = fadeIn(tween(800)) + slideInVertically()) {
-                Text(
-                    text = "¿Qué historia hay a tu alrededor hoy?",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Inter,
-                    fontWeight = FontWeight.Light
-                )
-            }
-            Spacer(modifier = Modifier.height(40.dp))
+fun PantallaInicio(onAbrirCamara: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "¿Qué historia hay a tu alrededor?",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
             BotonCamaraPrincipal(onClick = onAbrirCamara)
         }
     }
@@ -218,19 +132,21 @@ fun PantallaInicio(paddingValues: PaddingValues, onAbrirCamara: () -> Unit) {
 fun BotonCamaraPrincipal(onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(54.dp),
+        modifier = Modifier.fillMaxWidth(0.8f).height(56.dp),
         shape = CircleShape,
-        border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.6f)),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(text = "Abrir la cámara", fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f))
-        }
+        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = "Abrir la cámara",
+            color = Color.White, // Forzamos el blanco para que se vea en el emulador
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
-// Placeholders para evitar errores de referencia en el NavHost
-@Composable fun PantallaGaleria(p: PaddingValues) { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
-@Composable fun PantallaGuardados(p: PaddingValues) { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
+@Composable fun PantallaGaleria() { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
+@Composable fun PantallaGuardados() { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
