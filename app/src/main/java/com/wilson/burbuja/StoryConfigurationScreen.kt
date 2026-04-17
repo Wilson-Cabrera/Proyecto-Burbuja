@@ -71,7 +71,7 @@ fun StoryConfigurationScreen(
         )
 
         // FILTRO NAVY
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.5f)))
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.7f)))
 
         Scaffold(
             containerColor = Color.Transparent,

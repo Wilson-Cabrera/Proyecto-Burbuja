@@ -7,6 +7,7 @@ import java.net.URLDecoder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge // IMPORTANTE: Para el modo inmersivo
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -35,6 +36,11 @@ import com.wilson.burbuja.ui.theme.BurbujaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --- 1. ACTIVAR MODO BORDE A BORDE ---
+        // Esto elimina las barras sólidas y deja que tu diseño ocupe toda la pantalla
+        enableEdgeToEdge()
+
         setContent {
             BurbujaTheme {
                 MainScreen()
@@ -49,6 +55,7 @@ fun MainScreen() {
     val context = LocalContext.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
+
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
     var tienePermiso by remember {
@@ -60,24 +67,65 @@ fun MainScreen() {
     )
 
     Scaffold(
+        // Color oficial de Burbuja para toda la estructura
         containerColor = Color(0xFF1F2A37),
         bottomBar = {
-            AnimatedVisibility(visible = mostrarBottomBar, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+            AnimatedVisibility(
+                visible = mostrarBottomBar,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
                 NavegacionLiteral(navController = navController)
             }
         }
     ) { paddingValues ->
-        NavHost(navController = navController, startDestination = "inicio", modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        // --- 2. EL NAVHOST FULL SCREEN ---
+        // Quitamos el .padding(paddingValues) para que el fondo del Login llegue hasta arriba (StatusBar)
+        NavHost(
+            navController = navController,
+            startDestination = "login",
+            modifier = Modifier.fillMaxSize()
+        ) {
+
+            composable("login") {
+                LoginScreen(
+                    onLoginSuccess = {
+                        navController.navigate("inicio") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = { }
+                )
+            }
 
             composable("inicio") {
-                PantallaInicio(onAbrirCamara = {
-                    if (tienePermiso) navController.navigate("camara") else launcher.launch(Manifest.permission.CAMERA)
-                })
+                // En las pantallas con BottomBar, usamos el padding solo abajo para no tapar contenido
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = paddingValues.calculateBottomPadding())
+                ) {
+                    PantallaInicio(onAbrirCamara = {
+                        if (tienePermiso) navController.navigate("camara")
+                        else launcher.launch(Manifest.permission.CAMERA)
+                    })
+                }
             }
-            composable("galeria") { PantallaGaleria() }
-            composable("guardados") { PantallaGuardados() }
 
-            composable("camara") { CameraScreen(navController, onBackClicked = { navController.popBackStack() }) }
+            composable("galeria") {
+                Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
+                    PantallaGaleria()
+                }
+            }
+
+            composable("guardados") {
+                Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
+                    PantallaGuardados()
+                }
+            }
+
+            composable("camara") {
+                CameraScreen(navController, onBackClicked = { navController.popBackStack() })
+            }
 
             composable("preview_screen/{photoUri}") { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
@@ -92,7 +140,9 @@ fun MainScreen() {
             composable("loading/{photoUri}") { backStackEntry ->
                 val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
                 LoadingScreen(navController, uri, onLoadingFinished = {
-                    navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } }
+                    navController.navigate("result_screen") {
+                        popUpTo("loading/{photoUri}") { inclusive = true }
+                    }
                 })
             }
 
@@ -141,7 +191,7 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Text(
             text = "Abrir la cámara",
-            color = Color.White, // Forzamos el blanco para que se vea en el emulador
+            color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold
         )
