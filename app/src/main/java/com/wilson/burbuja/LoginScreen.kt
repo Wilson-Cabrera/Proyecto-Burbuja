@@ -1,5 +1,7 @@
 package com.wilson.burbuja
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -15,10 +17,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.launch
 import kotlin.math.*
 
 @Composable
@@ -26,129 +36,167 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
+    val context = LocalContext.current
+    val auth = remember { FirebaseAuth.getInstance() }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Firebase / Google Config
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("274602078486-6pd344j52agqs9svse9ue9d7pi78bt5n.apps.googleusercontent.com")
+            .requestEmail()
+            .build()
+    }
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+            auth.signInWithCredential(credential).addOnCompleteListener { taskAuth ->
+                if (taskAuth.isSuccessful) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("¡Bienvenido a la Burbuja!")
+                        onLoginSuccess()
+                    }
+                } else {
+                    isLoading = false
+                    scope.launch { snackbarHostState.showSnackbar("Fallo en la conexión.") }
+                }
+            }
+        } catch (e: ApiException) {
+            isLoading = false
+        }
+    }
+
     val navyBg = Color(0xFF1F2A37)
     val celesteIA = Color(0xFF7BCBFF)
-    val googleButtonBg = Color(0xFFDDE2E8) // Gris claro del diseño original
 
+    // Animación de fondo
     var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) }
     var isTouching by remember { mutableStateOf(false) }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
-    val pulse by infiniteTransition.animateFloat(
+    val pulse by rememberInfiniteTransition(label = "Pulse").animateFloat(
         initialValue = 0.8f, targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = ""
+        animationSpec = infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "pulse"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(navyBg)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        isTouching = event.changes.any { it.pressed }
-                        touchPos = event.changes.first().position
-                    }
-                }
-            }
-    ) {
-        // --- FONDO: CAMPO DE ENFOQUE ---
-        CampoDeEnfoque(celesteIA, touchPos, isTouching, pulse)
-
-        // --- INTERFAZ ORIGINAL ---
-        Column(
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = navyBg
+    ) { padding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(horizontal = 30.dp, vertical = 60.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top // Los textos van arriba según tu captura
-        ) {
-            Spacer(modifier = Modifier.height(40.dp))
-
-            Text(
-                text = "BIENVENIDO",
-                color = Color.White,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Lo que ves puede ser una historia",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 16.sp,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Light
-            )
-
-            // Empujamos los botones hacia abajo
-            Spacer(modifier = Modifier.weight(1f))
-
-            // BOTÓN GOOGLE
-            Button(
-                onClick = { /* Lógica de Google */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(65.dp),
-                shape = RoundedCornerShape(32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = googleButtonBg)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    // Representación del logo "G"
-                    Surface(
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape,
-                        color = Color(0xFF7B96B2).copy(alpha = 0.8f) // Color azulado del logo G en tu imagen
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("G", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                .padding(padding)
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            isTouching = event.changes.any { it.pressed }
+                            touchPos = event.changes.first().position
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Iniciar sesión con Google",
-                        color = Color(0xFF1F2A37),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
-            }
+        ) {
+            CampoDeEnfoque(celesteIA, touchPos, isTouching, pulse)
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // BOTÓN CREAR HISTORIA (Outlined Celeste)
-            OutlinedButton(
-                onClick = onLoginSuccess,
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(65.dp),
-                shape = RoundedCornerShape(32.dp),
-                border = BorderStroke(2.dp, celesteIA),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .padding(horizontal = 30.dp, vertical = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "Crear mi historia",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                // --- SECCIÓN SUPERIOR (Títulos) ---
+                Spacer(modifier = Modifier.height(20.dp))
 
-            Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "BIENVENIDO",
+                    color = Color.White,
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 2.sp
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Lo que ves puede ser una historia",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 16.sp,
+                    fontStyle = FontStyle.Italic
+                )
+
+                // Este Spacer con weight(1f) empuja todo lo que sigue hacia abajo
+                Spacer(modifier = Modifier.weight(1f))
+
+                // --- SECCIÓN INFERIOR (Botones y Carga) ---
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = celesteIA,
+                        modifier = Modifier.padding(bottom = 30.dp)
+                    )
+                } else {
+                    Button(
+                        onClick = {
+                            isLoading = true
+                            launcher.launch(googleSignInClient.signInIntent)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(65.dp),
+                        shape = RoundedCornerShape(32.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                    ) {
+                        Text(
+                            text = "Entrar con Google",
+                            color = navyBg,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            isLoading = true
+                            auth.signInAnonymously().addOnCompleteListener {
+                                if (it.isSuccessful) onLoginSuccess() else isLoading = false
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(65.dp),
+                        shape = RoundedCornerShape(32.dp),
+                        border = BorderStroke(2.dp, celesteIA)
+                    ) {
+                        Text(
+                            text = "Crear mi historia",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+            }
         }
     }
 }
 
 @Composable
 fun CampoDeEnfoque(color: Color, touchPos: Offset, isTouching: Boolean, pulse: Float) {
-    val smoothX by animateFloatAsState(if (isTouching) touchPos.x else 540f, spring(Spring.DampingRatioLowBouncy))
-    val smoothY by animateFloatAsState(if (isTouching) touchPos.y else 700f, spring(Spring.DampingRatioLowBouncy))
+    val smoothX by animateFloatAsState(targetValue = if (isTouching) touchPos.x else 540f, label = "X")
+    val smoothY by animateFloatAsState(targetValue = if (isTouching) touchPos.y else 700f, label = "Y")
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val center = Offset(smoothX, smoothY)
@@ -167,18 +215,13 @@ fun CampoDeEnfoque(color: Color, touchPos: Offset, isTouching: Boolean, pulse: F
             for (y in 0..size.height.toInt() step spacing.toInt()) {
                 val point = Offset(x.toFloat(), y.toFloat())
                 val dist = (point - center).getDistance()
-
                 var offsetPoint = point
                 if (dist < bubbleRadius) {
                     val factor = (1f - dist / bubbleRadius).pow(2)
-                    val dir = (point - center) / dist
-                    offsetPoint = point + dir * (factor * 40f)
+                    offsetPoint = point + (point - center) / dist * (factor * 40f)
                 }
-
-                val alpha = if (dist < bubbleRadius) 0.5f else 0.1f
-
                 drawCircle(
-                    color = color.copy(alpha = alpha),
+                    color = color.copy(alpha = if (dist < bubbleRadius) 0.5f else 0.1f),
                     radius = if (dist < bubbleRadius) 2f else 1f,
                     center = offsetPoint
                 )
