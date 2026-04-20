@@ -38,18 +38,16 @@ import kotlinx.coroutines.delay
 @Composable
 fun ResultScreen(
     storyData: StoryData,
-    nombreUsuario: String, // <--- 1. RECIBIMOS EL NOMBRE DESDE MAINACTIVITY
+    nombreUsuario: String,
     onBackClick: () -> Unit,
-    onGenerateAnother: () -> Unit
+    onGenerateAnother: () -> Unit,
+    onLogout: () -> Unit // <--- 1. NUEVA ORDEN RECIBIDA
 ) {
-    // 2. CALCULAMOS LA INICIAL DINÁMICA
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
-
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val screenBackground = Color(0xFF0F172A)
 
-    // --- LÓGICA DE ESCRITURA ---
     val cuentoCompleto = storyData.resultStory.ifEmpty { "Generando relato..." }
     var textoMostrado by remember { mutableStateOf("") }
 
@@ -65,7 +63,6 @@ fun ResultScreen(
 
         // --- CAPA 1: FONDO Y FOTO (DIFUMINABLE) ---
         Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
-            // Glow de fondo
             Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
                 drawCircle(
                     color = Color(0xFF6A5CFF).copy(alpha = 0.15f),
@@ -74,7 +71,6 @@ fun ResultScreen(
                 )
             }
 
-            // Imagen
             AsyncImage(
                 model = storyData.photoUri,
                 contentDescription = null,
@@ -83,7 +79,6 @@ fun ResultScreen(
                 alpha = 0.6f
             )
 
-            // Degradado superior
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
@@ -102,7 +97,6 @@ fun ResultScreen(
             ) {
                 Spacer(modifier = Modifier.height(340.dp))
 
-                // CHIPS DE DATOS
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -123,9 +117,7 @@ fun ResultScreen(
                 }
 
                 Text(text = "Fragmentos de Realidad", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-
                 Spacer(modifier = Modifier.height(24.dp))
-
                 Text(
                     text = textoMostrado,
                     color = Color.White.copy(alpha = 0.9f),
@@ -133,7 +125,6 @@ fun ResultScreen(
                     lineHeight = 30.sp,
                     textAlign = TextAlign.Start
                 )
-
                 Spacer(modifier = Modifier.height(200.dp))
             }
         }
@@ -196,7 +187,6 @@ fun ResultScreen(
             color = Color(0xFF7B61FF),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
         ) {
-            // 3. APLICAMOS LA LETRA DINÁMICA A LA ELIPSE
             Box(contentAlignment = Alignment.Center) { Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold) }
         }
 
@@ -206,8 +196,12 @@ fun ResultScreen(
             exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             modifier = Modifier.padding(bottom = 110.dp, end = 28.dp).align(Alignment.BottomEnd)
         ) {
-            // 4. PASAMOS EL NOMBRE A LA TARJETA DEL MENÚ
-            ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false })
+            // 2. PASAMOS LA ORDEN DE LOGOUT AL MENÚ
+            ProfileMenuCard(
+                nombreUsuario = nombreUsuario,
+                onClose = { isProfileMenuVisible = false },
+                onLogout = onLogout
+            )
         }
     }
 }
@@ -217,7 +211,8 @@ fun ResultScreen(
 @Composable
 fun ProfileMenuCard(
     nombreUsuario: String = "Wilson",
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onLogout: () -> Unit // <--- 3. NUEVO PARÁMETRO
 ) {
     Card(
         modifier = Modifier.width(260.dp),
@@ -232,16 +227,32 @@ fun ProfileMenuCard(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            ProfileMenuItem(Icons.Default.NightsStay, "Modo oscuro")
-            ProfileMenuItem(Icons.Default.Share, "Compartir")
-            ProfileMenuItem(Icons.AutoMirrored.Filled.ExitToApp, "Cerrar sesión")
+            ProfileMenuItem(Icons.Default.NightsStay, "Modo oscuro", onClick = {})
+            ProfileMenuItem(Icons.Default.Share, "Compartir", onClick = {})
+
+            // 4. EL BOTÓN CLAVE AHORA EJECUTA ONLOGOUT
+            ProfileMenuItem(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                text = "Cerrar sesión",
+                onClick = onLogout
+            )
         }
     }
 }
 
 @Composable
-fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {}.padding(vertical = 10.dp)) {
+fun ProfileMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    onClick: () -> Unit // <--- 5. AHORA ACEPTA CLIC
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() } // <--- EJECUTA EL CALLBACK
+            .padding(vertical = 10.dp)
+    ) {
         Icon(icon, null, tint = Color(0xFF1E293B), modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(text, color = Color(0xFF1E293B), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)

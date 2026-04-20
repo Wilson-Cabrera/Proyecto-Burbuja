@@ -30,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
 import com.wilson.burbuja.ui.theme.BurbujaTheme
 
 class MainActivity : ComponentActivity() {
@@ -54,9 +57,28 @@ fun MainScreen() {
     var isProfileMenuVisible by remember { mutableStateOf(false) }
 
     // --- ESTADO GLOBAL DEL USUARIO ---
-    // Inicia como "Usuario", se actualiza al pasar por el Login
     var nombreUsuario by remember { mutableStateOf("Usuario") }
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
+
+    // --- CONFIGURACIÓN DE LOGOUT ---
+    val cerrarSesion = {
+        // 1. Firebase Sign Out
+        FirebaseAuth.getInstance().signOut()
+
+        // 2. Google Sign Out (Para que la próxima vez pida elegir cuenta)
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+        val googleClient = GoogleSignIn.getClient(context, gso)
+        googleClient.signOut()
+
+        // 3. Resetear estados locales
+        nombreUsuario = "Usuario"
+        isProfileMenuVisible = false
+
+        // 4. Navegar al Login y limpiar TODO el historial
+        navController.navigate("login") {
+            popUpTo(0) { inclusive = true }
+        }
+    }
 
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
 
@@ -78,7 +100,7 @@ fun MainScreen() {
                 AnimatedVisibility(visible = mostrarBottomBar) {
                     NavegacionLiteral(
                         navController = navController,
-                        letraUsuario = letraUsuario, // 1. Pasamos la inicial a la barra
+                        letraUsuario = letraUsuario,
                         onProfileClick = { isProfileMenuVisible = !isProfileMenuVisible }
                     )
                 }
@@ -91,7 +113,6 @@ fun MainScreen() {
             ) {
                 composable("login") {
                     LoginScreen(
-                        // 2. RECIBIMOS EL NOMBRE Y LO GUARDAMOS
                         onLoginSuccess = { nombreVieneDeGoogle ->
                             nombreUsuario = nombreVieneDeGoogle
                             navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
@@ -121,9 +142,10 @@ fun MainScreen() {
                     val storyData = remember { navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData") ?: StoryData() }
                     ResultScreen(
                         storyData = storyData,
-                        nombreUsuario = nombreUsuario, // 3. PASAMOS EL NOMBRE A LA PANTALLA DE RESULTADOS
+                        nombreUsuario = nombreUsuario,
                         onBackClick = { navController.popBackStack() },
-                        onGenerateAnother = { navController.popBackStack() }
+                        onGenerateAnother = { navController.popBackStack() },
+                        onLogout = cerrarSesion // <--- CONEXIÓN EN RESULT SCREEN
                     )
                 }
             }
@@ -147,8 +169,11 @@ fun MainScreen() {
                     .padding(bottom = 95.dp, end = 20.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
-                // 4. PASAMOS EL NOMBRE AL MENÚ DE INICIO
-                ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false })
+                ProfileMenuCard(
+                    nombreUsuario = nombreUsuario,
+                    onClose = { isProfileMenuVisible = false },
+                    onLogout = cerrarSesion // <--- CONEXIÓN EN EL OVERLAY
+                )
             }
         }
     }
