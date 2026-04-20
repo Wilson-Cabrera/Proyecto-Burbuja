@@ -26,8 +26,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 @Composable
 fun NavegacionLiteral(
     navController: NavController,
-    letraUsuario: String, // <--- Recibe la letra del MainActivity
-    onProfileClick: () -> Unit
+    letraUsuario: String,
+    onProfileClick: () -> Unit,
+    onGalleryClick: () -> Unit // <--- Recibimos la acción desde el Main
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
@@ -52,9 +53,26 @@ fun NavegacionLiteral(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ItemNavegacionLiteral(icon = Icons.Default.Home, label = "Inicio", selected = rutaActual == "inicio", onClick = { navController.navigate("inicio") })
-                ItemNavegacionLiteral(icon = Icons.Default.PhotoLibrary, label = "Galeria", selected = rutaActual == "galeria", onClick = { navController.navigate("galeria") })
-                ItemNavegacionLiteral(icon = Icons.Default.Star, label = "Guardados", selected = rutaActual == "guardados", onClick = { navController.navigate("guardados") })
+                ItemNavegacionLiteral(
+                    icon = Icons.Default.Home,
+                    label = "Inicio",
+                    selected = rutaActual == "inicio",
+                    onClick = { navController.navigate("inicio") }
+                )
+
+                ItemNavegacionLiteral(
+                    icon = Icons.Default.PhotoLibrary,
+                    label = "Galeria",
+                    selected = rutaActual == "galeria",
+                    onClick = { onGalleryClick() } // <--- Ahora dispara el selector
+                )
+
+                ItemNavegacionLiteral(
+                    icon = Icons.Default.Star,
+                    label = "Guardados",
+                    selected = rutaActual == "guardados",
+                    onClick = { navController.navigate("guardados") }
+                )
             }
         }
 
@@ -71,7 +89,7 @@ fun NavegacionLiteral(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = letraUsuario.uppercase(), // Pinta la inicial
+                    text = letraUsuario.uppercase(),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold

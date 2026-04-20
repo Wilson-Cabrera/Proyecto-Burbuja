@@ -2,12 +2,15 @@ package com.wilson.burbuja
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import java.net.URLDecoder
+import java.net.URLEncoder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -34,6 +37,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.wilson.burbuja.ui.theme.BurbujaTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,23 +56,21 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope() // Clave para manejar los tiempos
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
     var isProfileMenuVisible by remember { mutableStateOf(false) }
+    var isProcessingImage by remember { mutableStateOf(false) }
 
-    // --- LÓGICA DE PERSISTENCIA DE SESIÓN CORREGIDA ---
     val auth = remember { FirebaseAuth.getInstance() }
     val usuarioFirebase = auth.currentUser
 
-    // 1. Decidimos el nombre con una lógica más robusta
     var nombreUsuario by remember {
         mutableStateOf(
             when {
                 usuarioFirebase == null -> "Usuario"
-                // Si tiene nombre en Firebase (Google), usamos ese
                 !usuarioFirebase.displayName.isNullOrBlank() -> usuarioFirebase.displayName!!
-                // Si no tiene nombre pero es anónimo, es nuestro "Invitado"
                 usuarioFirebase.isAnonymous -> "Invitado"
                 else -> "Usuario"
             }
@@ -77,19 +80,34 @@ fun MainScreen() {
     val pantallaDeArranque = if (usuarioFirebase != null) "inicio" else "login"
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
 
-    // --- CONFIGURACIÓN DE LOGOUT ---
+    // --- LANZADOR DE GALERÍA CORREGIDO ---
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            uri?.let {
+                // Usamos el scope para manejar la espera
+                scope.launch {
+                    isProcessingImage = true // 1. Mostramos la carga
+                    val encodedUri = URLEncoder.encode(it.toString(), "UTF-8")
+
+                    delay(150) // 2. Breve pausa para que el UI pinte el overlay
+                    navController.navigate("story_configuration/$encodedUri")
+
+                    delay(800) // 3. Esperamos a que la navegación realmente suceda
+                    isProcessingImage = false // 4. Recién ahí apagamos la carga
+                }
+            }
+        }
+    )
+
     val cerrarSesion = {
         FirebaseAuth.getInstance().signOut()
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
         val googleClient = GoogleSignIn.getClient(context, gso)
         googleClient.signOut()
-
         nombreUsuario = "Usuario"
         isProfileMenuVisible = false
-
-        navController.navigate("login") {
-            popUpTo(0) { inclusive = true }
-        }
+        navController.navigate("login") { popUpTo(0) { inclusive = true } }
     }
 
     val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
@@ -97,22 +115,25 @@ fun MainScreen() {
     var tienePermiso by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
-    val launcher = rememberLauncherForActivityResult(
+    val launcherCamara = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { concedido -> tienePermiso = concedido }
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-
         Scaffold(
-            modifier = Modifier.blur(if (isProfileMenuVisible) 20.dp else 0.dp),
+            // Aplicamos blur al fondo si hay carga o menú abierto
+            modifier = Modifier.blur(if (isProfileMenuVisible || isProcessingImage) 20.dp else 0.dp),
             containerColor = Color(0xFF1F2A37),
             bottomBar = {
                 AnimatedVisibility(visible = mostrarBottomBar) {
                     NavegacionLiteral(
                         navController = navController,
                         letraUsuario = letraUsuario,
-                        onProfileClick = { isProfileMenuVisible = !isProfileMenuVisible }
+                        onProfileClick = { isProfileMenuVisible = !isProfileMenuVisible },
+                        onGalleryClick = {
+                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
                     )
                 }
             }
@@ -124,8 +145,8 @@ fun MainScreen() {
             ) {
                 composable("login") {
                     LoginScreen(
-                        onLoginSuccess = { nombreRecibido ->
-                            nombreUsuario = nombreRecibido
+                        onLoginSuccess = { nombre ->
+                            nombreUsuario = nombre
                             navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
                         },
                         onNavigateToRegister = {}
@@ -136,18 +157,31 @@ fun MainScreen() {
                     Box(modifier = Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
                         PantallaInicio(onAbrirCamara = {
                             if (tienePermiso) navController.navigate("camara")
-                            else launcher.launch(Manifest.permission.CAMERA)
+                            else launcherCamara.launch(Manifest.permission.CAMERA)
                         })
                     }
                 }
 
                 composable("galeria") { Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) { PantallaGaleria() } }
                 composable("guardados") { Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) { PantallaGuardados() } }
-
                 composable("camara") { CameraScreen(navController, onBackClicked = { navController.popBackStack() }) }
-                composable("preview_screen/{photoUri}") { backStackEntry -> val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8"); PreviewScreen(navController, uri) }
-                composable("story_configuration/{photoUri}") { backStackEntry -> val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8"); StoryConfigurationScreen(navController, uri, onBackClick = { navController.popBackStack() }) }
-                composable("loading/{photoUri}") { backStackEntry -> val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8"); LoadingScreen(navController, uri, onLoadingFinished = { navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } } }) }
+
+                composable("preview_screen/{photoUri}") { backStackEntry ->
+                    val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
+                    PreviewScreen(navController, uri)
+                }
+
+                composable("story_configuration/{photoUri}") { backStackEntry ->
+                    val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
+                    StoryConfigurationScreen(navController, uri, onBackClick = { navController.popBackStack() })
+                }
+
+                composable("loading/{photoUri}") { backStackEntry ->
+                    val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
+                    LoadingScreen(navController, uri, onLoadingFinished = {
+                        navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } }
+                    })
+                }
 
                 composable("result_screen") {
                     val storyData = remember { navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData") ?: StoryData() }
@@ -162,27 +196,42 @@ fun MainScreen() {
             }
         }
 
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
+        // --- CAPA DE CARGA (OVERLAY) ---
+        AnimatedVisibility(
+            visible = isProcessingImage,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable { isProfileMenuVisible = false }
-            )
+                    .background(Color(0xFF1F2A37).copy(alpha = 0.9f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color(0xFF7ACAFF))
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        "Procesando imagen...",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // --- CAPA DE PERFIL ---
+        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable { isProfileMenuVisible = false })
         }
 
         if (isProfileMenuVisible) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 95.dp, end = 20.dp),
+                modifier = Modifier.fillMaxSize().padding(bottom = 95.dp, end = 20.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
-                ProfileMenuCard(
-                    nombreUsuario = nombreUsuario,
-                    onClose = { isProfileMenuVisible = false },
-                    onLogout = cerrarSesion
-                )
+                ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = cerrarSesion)
             }
         }
     }
