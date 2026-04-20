@@ -18,6 +18,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource // <--- Importante para el ícono
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +34,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.*
 
+// --- 1. DEFINICIÓN DE TIPOGRAFÍA ---
+val InterFont = FontFamily(
+    Font(R.font.inter_variable, FontWeight.Normal),
+    Font(R.font.inter_variable, FontWeight.Thin),
+    Font(R.font.inter_variable, FontWeight.Black),
+    Font(R.font.inter_variable, FontWeight(950)) // Ultra Black
+)
+
 @Composable
 fun LoginScreen(
     onLoginSuccess: (String) -> Unit,
@@ -40,10 +51,9 @@ fun LoginScreen(
     val auth = remember { FirebaseAuth.getInstance() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
     var isLoading by remember { mutableStateOf(false) }
 
-    // --- GOOGLE SIGN-IN CONFIG ---
+    // --- CONFIGURACIÓN GOOGLE ---
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken("274602078486-6pd344j52agqs9svse9ue9d7pi78bt5n.apps.googleusercontent.com")
@@ -59,26 +69,18 @@ fun LoginScreen(
         try {
             val account = task.getResult(ApiException::class.java)
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-
             auth.signInWithCredential(credential).addOnCompleteListener { taskAuth ->
                 if (taskAuth.isSuccessful) {
                     scope.launch {
-                        val nombreUsuario = account.displayName ?: "Wilson"
-                        snackbarHostState.showSnackbar("¡Hola de nuevo, $nombreUsuario!")
-                        delay(1000)
-                        onLoginSuccess(nombreUsuario)
+                        val nombre = account.displayName ?: "Wilson"
+                        onLoginSuccess(nombre)
                     }
-                } else {
-                    isLoading = false
-                    scope.launch { snackbarHostState.showSnackbar("Error: No se pudo conectar con Firebase.") }
-                }
+                } else { isLoading = false }
             }
-        } catch (e: ApiException) {
-            isLoading = false
-            scope.launch { snackbarHostState.showSnackbar("Login de Google cancelado.") }
-        }
+        } catch (e: ApiException) { isLoading = false }
     }
 
+    // --- IDENTIDAD VISUAL ---
     val navyBg = Color(0xFF1F2A37)
     val celesteIA = Color(0xFF7BCBFF)
     var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) }
@@ -123,17 +125,20 @@ fun LoginScreen(
                     text = "BIENVENIDO",
                     color = Color.White,
                     fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.sp
+                    fontWeight = FontWeight(950),
+                    letterSpacing = (-1.5).sp,
+                    fontFamily = InterFont
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "Lo que ves puede ser una historia",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 16.sp,
-                    fontStyle = FontStyle.Italic
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Thin,
+                    fontFamily = InterFont
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -141,7 +146,7 @@ fun LoginScreen(
                 if (isLoading) {
                     CircularProgressIndicator(color = celesteIA, modifier = Modifier.padding(bottom = 32.dp))
                 } else {
-                    // BOTÓN GOOGLE
+                    // BOTÓN GOOGLE CON ÍCONO
                     Button(
                         onClick = {
                             isLoading = true
@@ -149,38 +154,52 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
-                        Text("Entrar con Google", color = navyBg, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_google),
+                                contentDescription = "Google Logo",
+                                modifier = Modifier.size(20.dp),
+                                // ESTA es la mejor práctica:
+                                tint = Color(0xFF1F2A37)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Entrar con Google",
+                                color = navyBg,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                fontFamily = InterFont
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // BOTÓN INVITADO (ANÓNIMO)
+                    // BOTÓN INVITADO
                     OutlinedButton(
                         onClick = {
                             isLoading = true
                             auth.signInAnonymously().addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Entrando como Invitado...")
-                                        delay(1000)
-                                        onLoginSuccess("Invitado") // <--- Esto activa la "I" en el Main
-                                    }
-                                } else {
-                                    isLoading = false
-                                    scope.launch {
-                                        // Esto te avisará si te olvidaste de activar "Anónimo" en la consola
-                                        snackbarHostState.showSnackbar("Error: Acceso anónimo no habilitado.")
-                                    }
-                                }
+                                if (task.isSuccessful) onLoginSuccess("Invitado")
+                                else isLoading = false
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
                         border = BorderStroke(2.dp, celesteIA)
                     ) {
-                        Text("Crear mi historia", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = "Crear mi historia",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = InterFont
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
