@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NightsStay
@@ -39,9 +38,13 @@ import kotlinx.coroutines.delay
 @Composable
 fun ResultScreen(
     storyData: StoryData,
+    nombreUsuario: String, // <--- 1. RECIBIMOS EL NOMBRE DESDE MAINACTIVITY
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit
 ) {
+    // 2. CALCULAMOS LA INICIAL DINÁMICA
+    val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
+
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val screenBackground = Color(0xFF0F172A)
@@ -99,7 +102,7 @@ fun ResultScreen(
             ) {
                 Spacer(modifier = Modifier.height(340.dp))
 
-                // CHIPS DE DATOS (Recuperados)
+                // CHIPS DE DATOS
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -127,17 +130,15 @@ fun ResultScreen(
                     text = textoMostrado,
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 17.sp,
-                    fontFamily = Inter,
                     lineHeight = 30.sp,
                     textAlign = TextAlign.Start
                 )
 
-                // ESPACIO PARA EL DOCK (El secreto del scroll)
                 Spacer(modifier = Modifier.height(200.dp))
             }
         }
 
-        // --- CAPA 3: DOCK INFERIOR (FIJO CON GRADIENTE) ---
+        // --- CAPA 3: DOCK INFERIOR ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -195,7 +196,8 @@ fun ResultScreen(
             color = Color(0xFF7B61FF),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
         ) {
-            Box(contentAlignment = Alignment.Center) { Text("W", color = Color.White, fontWeight = FontWeight.Bold) }
+            // 3. APLICAMOS LA LETRA DINÁMICA A LA ELIPSE
+            Box(contentAlignment = Alignment.Center) { Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold) }
         }
 
         AnimatedVisibility(
@@ -204,15 +206,19 @@ fun ResultScreen(
             exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             modifier = Modifier.padding(bottom = 110.dp, end = 28.dp).align(Alignment.BottomEnd)
         ) {
-            ProfileMenuCard(onClose = { isProfileMenuVisible = false })
+            // 4. PASAMOS EL NOMBRE A LA TARJETA DEL MENÚ
+            ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false })
         }
     }
 }
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES ACTUALIZADOS ---
 
 @Composable
-fun ProfileMenuCard(onClose: () -> Unit) {
+fun ProfileMenuCard(
+    nombreUsuario: String = "Wilson",
+    onClose: () -> Unit
+) {
     Card(
         modifier = Modifier.width(260.dp),
         shape = RoundedCornerShape(24.dp),
@@ -220,7 +226,7 @@ fun ProfileMenuCard(onClose: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("¡Hola Wilson!", color = Color(0xFF64748B), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text("¡Hola $nombreUsuario!", color = Color(0xFF64748B), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Close, null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
                 }

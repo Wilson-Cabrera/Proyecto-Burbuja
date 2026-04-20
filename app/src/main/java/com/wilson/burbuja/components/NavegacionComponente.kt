@@ -1,13 +1,11 @@
 package com.wilson.burbuja
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
@@ -26,66 +24,54 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
 @Composable
-fun NavegacionLiteral(navController: NavController) {
+fun NavegacionLiteral(
+    navController: NavController,
+    letraUsuario: String, // <--- Recibe la letra del MainActivity
+    onProfileClick: () -> Unit
+) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
-    // --- EL CONTENEDOR PRINCIPAL (Row) ---
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Ajustamos el padding horizontal para ganar espacio para la barra
             .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // --- 1. LA BARRA DE NAVEGACIÓN (Tu diseño de cápsula) ---
         Surface(
             modifier = Modifier
-                .weight(1f) // Esto hace que la barra sea lo más ancha posible
-                .height(56.dp), // Tu altura original
-            shape = RoundedCornerShape(32.dp),//Curva
-            color = Color(0xFF6E88A6).copy(alpha = 0.9f), // Tu color grisáceo original
+                .weight(1f)
+                .height(56.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = Color(0xFF6E88A6).copy(alpha = 0.9f),
             shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly // Distribuimos equitativamente los 3 ítems
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.Home,
-                    label = "Inicio",
-                    selected = rutaActual == "inicio",
-                    onClick = { navController.navigate("inicio") }
-                )
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.PhotoLibrary,
-                    label = "Galeria",
-                    selected = rutaActual == "galeria",
-                    onClick = { navController.navigate("galeria") }
-                )
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.Star,
-                    label = "Guardados", // <--- ACÁ ESTÁ EL DESAFÍO
-                    selected = rutaActual == "guardados",
-                    onClick = { navController.navigate("guardados") }
-                )
+                ItemNavegacionLiteral(icon = Icons.Default.Home, label = "Inicio", selected = rutaActual == "inicio", onClick = { navController.navigate("inicio") })
+                ItemNavegacionLiteral(icon = Icons.Default.PhotoLibrary, label = "Galeria", selected = rutaActual == "galeria", onClick = { navController.navigate("galeria") })
+                ItemNavegacionLiteral(icon = Icons.Default.Star, label = "Guardados", selected = rutaActual == "guardados", onClick = { navController.navigate("guardados") })
             }
         }
 
         Spacer(modifier = Modifier.width(6.dp))
 
-        // --- 2. EL CÍRCULO "W" (Por fuera, con tu color específico) ---
+        // LA ELIPSE CON LA LETRA
         Surface(
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier
+                .size(56.dp)
+                .clickable { onProfileClick() },
             shape = CircleShape,
-            color = Color(0xFF6E88A6), // EL COLOR QUE PEDISTE
+            color = Color(0xFF6E88A6),
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = "W",
+                    text = letraUsuario.uppercase(), // Pinta la inicial
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
@@ -95,53 +81,19 @@ fun NavegacionLiteral(navController: NavController) {
     }
 }
 
-// --- FUNCIÓN DEL ÍTEM (Recrea exactamente tu cápsula de selección) ---
 @Composable
-fun ItemNavegacionLiteral(
-    icon: ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White// color de los elementos seleccionados
-
-    // Si está seleccionado, recreamos la cápsula que lo rodea
+fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
     val modifierSeleccionado = if (selected) {
-        Modifier
-            .clip(CircleShape)
-            // Fondo celeste muy suave de la cápsula
-            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))//color de la capsula seleccionada
-            // Borde celeste brillante
-
-            // Padding horizontal amplio para que el texto de "Guardados" entre
-            .padding(horizontal = 16.dp, vertical = 13.dp)
+        Modifier.clip(CircleShape).background(Color(0xFF7ACAFF).copy(alpha = 0.15f)).padding(horizontal = 16.dp, vertical = 13.dp)
     } else {
         Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
     }
-
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .clickable { onClick() }
-            .then(modifierSeleccionado),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.clip(CircleShape).clickable { onClick() }.then(modifierSeleccionado), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = colorContenido,
-                modifier = Modifier.size(20.dp)
-            )
-            // En tu diseño, el texto siempre se ve, pero resalta si está seleccionado
+            Icon(imageVector = icon, contentDescription = label, tint = colorContenido, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = label,
-                color = colorContenido,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 1 // <--- ESTO EVITA QUE SE CORTE EN DOS LÍNEAS
-            )
+            Text(text = label, color = colorContenido, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
         }
     }
 }

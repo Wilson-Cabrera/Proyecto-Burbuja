@@ -34,29 +34,28 @@ import kotlin.math.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,      // Callback para ir a la Home
-    onNavigateToRegister: () -> Unit // Callback por si necesitas registro extra
+    // ¡CAMBIO CLAVE! Ahora onLoginSuccess exige un String (el nombre)
+    onLoginSuccess: (String) -> Unit,
+    onNavigateToRegister: () -> Unit
 ) {
     // --- 1. REFERENCIAS Y ESTADOS ---
     val context = LocalContext.current
-    val auth = remember { FirebaseAuth.getInstance() } // Instancia de Firebase Auth
-    val scope = rememberCoroutineScope()               // Para lanzar procesos asíncronos (corrutinas)
-    val snackbarHostState = remember { SnackbarHostState() } // Para mostrar carteles de aviso
+    val auth = remember { FirebaseAuth.getInstance() }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Estado para controlar si la app está trabajando (mostrando el circulito de carga)
     var isLoading by remember { mutableStateOf(false) }
 
     // --- 2. CONFIGURACIÓN DE GOOGLE SIGN-IN ---
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("274602078486-6pd344j52agqs9svse9ue9d7pi78bt5n.apps.googleusercontent.com") // ID de tu consola Firebase
+            .requestIdToken("274602078486-6pd344j52agqs9svse9ue9d7pi78bt5n.apps.googleusercontent.com")
             .requestEmail()
             .build()
     }
     val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 
     // --- 3. GESTOR DE RESULTADOS (EL PUENTE) ---
-    // Este bloque se ejecuta cuando volvés de la ventanita de Google
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -65,14 +64,14 @@ fun LoginScreen(
             val account = task.getResult(ApiException::class.java)
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
 
-            // Intentamos loguear en Firebase con la cuenta de Google obtenida
             auth.signInWithCredential(credential).addOnCompleteListener { taskAuth ->
                 if (taskAuth.isSuccessful) {
                     scope.launch {
-                        // Mostramos mensaje de éxito con el nombre del usuario
-                        snackbarHostState.showSnackbar("¡Sesión iniciada! Bienvenido, ${account.displayName}")
-                        delay(1500) // Tiempo de respiro para que el usuario lea el mensaje
-                        onLoginSuccess() // Navegamos a la siguiente pantalla
+                        val nombreUsuario = account.displayName ?: "Usuario"
+                        snackbarHostState.showSnackbar("¡Sesión iniciada! Bienvenido, $nombreUsuario")
+                        delay(1500)
+                        // ¡CAMBIO CLAVE! Enviamos el nombre obtenido al MainActivity
+                        onLoginSuccess(nombreUsuario)
                     }
                 } else {
                     isLoading = false
@@ -80,7 +79,6 @@ fun LoginScreen(
                 }
             }
         } catch (e: ApiException) {
-            // Si el usuario cierra el selector de Google sin elegir nada
             isLoading = false
             scope.launch { snackbarHostState.showSnackbar("Inicio de sesión cancelado.") }
         }
@@ -91,10 +89,9 @@ fun LoginScreen(
     val celesteIA = Color(0xFF7BCBFF)
 
     // --- 5. LÓGICA DE ANIMACIÓN INTERACTIVA ---
-    var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) } // Posición del dedo
-    var isTouching by remember { mutableStateOf(false) }               // ¿Está tocando la pantalla?
+    var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) }
+    var isTouching by remember { mutableStateOf(false) }
 
-    // Animación de pulso infinito para el brillo del fondo
     val pulse by rememberInfiniteTransition(label = "Pulse").animateFloat(
         initialValue = 0.8f, targetValue = 1.2f,
         animationSpec = infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
@@ -103,14 +100,13 @@ fun LoginScreen(
 
     // --- 6. ESTRUCTURA VISUAL (LAYOUT) ---
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }, // Contenedor de mensajes flotantes
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = navyBg
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                // Capturamos los movimientos del dedo para la animación del fondo
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
@@ -121,13 +117,12 @@ fun LoginScreen(
                     }
                 }
         ) {
-            // Capa del fondo dibujado por código
             CampoDeEnfoque(celesteIA, touchPos, isTouching, pulse)
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .safeDrawingPadding() // Evita que el contenido choque con la cámara frontal o bordes
+                    .safeDrawingPadding()
                     .padding(horizontal = 30.dp, vertical = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -151,18 +146,15 @@ fun LoginScreen(
                     fontStyle = FontStyle.Italic
                 )
 
-                // Resorte que empuja los botones hacia abajo
                 Spacer(modifier = Modifier.weight(1f))
 
                 // --- BOTONES Y FEEDBACK ---
                 if (isLoading) {
-                    // Círculo de carga mientras se procesa el login
                     CircularProgressIndicator(
                         color = celesteIA,
                         modifier = Modifier.padding(bottom = 32.dp)
                     )
                 } else {
-                    // Botón principal: Google
                     Button(
                         onClick = {
                             isLoading = true
@@ -177,7 +169,6 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Botón secundario: Invitado (Login Anónimo)
                     OutlinedButton(
                         onClick = {
                             isLoading = true
@@ -186,7 +177,8 @@ fun LoginScreen(
                                     scope.launch {
                                         snackbarHostState.showSnackbar("Accediendo como invitado...")
                                         delay(1000)
-                                        onLoginSuccess()
+                                        // ¡CAMBIO CLAVE! Enviamos un nombre genérico para usuarios anónimos
+                                        onLoginSuccess("Invitado")
                                     }
                                 } else {
                                     isLoading = false
@@ -207,13 +199,8 @@ fun LoginScreen(
     }
 }
 
-/**
- * Función encargada de dibujar el fondo de puntos interactivo mediante un Canvas.
- * Usa cálculos matemáticos para el efecto de deformación al tocar.
- */
 @Composable
 fun CampoDeEnfoque(color: Color, touchPos: Offset, isTouching: Boolean, pulse: Float) {
-    // Suavizado del movimiento de la "burbuja" de enfoque
     val smoothX by animateFloatAsState(targetValue = if (isTouching) touchPos.x else 540f, label = "X")
     val smoothY by animateFloatAsState(targetValue = if (isTouching) touchPos.y else 700f, label = "Y")
 
@@ -221,7 +208,6 @@ fun CampoDeEnfoque(color: Color, touchPos: Offset, isTouching: Boolean, pulse: F
         val center = Offset(smoothX, smoothY)
         val bubbleRadius = size.width * 0.45f * pulse
 
-        // Dibujamos el resplandor radial
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(color.copy(alpha = 0.2f), Color.Transparent),
@@ -230,21 +216,18 @@ fun CampoDeEnfoque(color: Color, touchPos: Offset, isTouching: Boolean, pulse: F
             )
         )
 
-        // Dibujamos la cuadrícula de puntos interactivos
-        val spacing = 55f // Espacio entre puntos
+        val spacing = 55f
         for (x in 0..size.width.toInt() step spacing.toInt()) {
             for (y in 0..size.height.toInt() step spacing.toInt()) {
                 val point = Offset(x.toFloat(), y.toFloat())
                 val dist = (point - center).getDistance()
                 var offsetPoint = point
 
-                // Si el punto está dentro del radio de la burbuja, lo "empujamos"
                 if (dist < bubbleRadius) {
                     val factor = (1f - dist / bubbleRadius).pow(2)
                     offsetPoint = point + (point - center) / dist * (factor * 40f)
                 }
 
-                // Dibujamos el punto individualmente
                 drawCircle(
                     color = color.copy(alpha = if (dist < bubbleRadius) 0.5f else 0.1f),
                     radius = if (dist < bubbleRadius) 2f else 1f,
