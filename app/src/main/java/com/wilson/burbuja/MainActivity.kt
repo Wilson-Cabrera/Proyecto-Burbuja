@@ -56,25 +56,37 @@ fun MainScreen() {
 
     var isProfileMenuVisible by remember { mutableStateOf(false) }
 
-    // --- ESTADO GLOBAL DEL USUARIO ---
-    var nombreUsuario by remember { mutableStateOf("Usuario") }
+    // --- LÓGICA DE PERSISTENCIA DE SESIÓN CORREGIDA ---
+    val auth = remember { FirebaseAuth.getInstance() }
+    val usuarioFirebase = auth.currentUser
+
+    // 1. Decidimos el nombre con una lógica más robusta
+    var nombreUsuario by remember {
+        mutableStateOf(
+            when {
+                usuarioFirebase == null -> "Usuario"
+                // Si tiene nombre en Firebase (Google), usamos ese
+                !usuarioFirebase.displayName.isNullOrBlank() -> usuarioFirebase.displayName!!
+                // Si no tiene nombre pero es anónimo, es nuestro "Invitado"
+                usuarioFirebase.isAnonymous -> "Invitado"
+                else -> "Usuario"
+            }
+        )
+    }
+
+    val pantallaDeArranque = if (usuarioFirebase != null) "inicio" else "login"
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
 
     // --- CONFIGURACIÓN DE LOGOUT ---
     val cerrarSesion = {
-        // 1. Firebase Sign Out
         FirebaseAuth.getInstance().signOut()
-
-        // 2. Google Sign Out (Para que la próxima vez pida elegir cuenta)
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
         val googleClient = GoogleSignIn.getClient(context, gso)
         googleClient.signOut()
 
-        // 3. Resetear estados locales
         nombreUsuario = "Usuario"
         isProfileMenuVisible = false
 
-        // 4. Navegar al Login y limpiar TODO el historial
         navController.navigate("login") {
             popUpTo(0) { inclusive = true }
         }
@@ -92,7 +104,6 @@ fun MainScreen() {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // --- CAPA 0: LA APP (CON EFECTO BLUR) ---
         Scaffold(
             modifier = Modifier.blur(if (isProfileMenuVisible) 20.dp else 0.dp),
             containerColor = Color(0xFF1F2A37),
@@ -108,13 +119,13 @@ fun MainScreen() {
         ) { paddingValues ->
             NavHost(
                 navController = navController,
-                startDestination = "login",
+                startDestination = pantallaDeArranque,
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable("login") {
                     LoginScreen(
-                        onLoginSuccess = { nombreVieneDeGoogle ->
-                            nombreUsuario = nombreVieneDeGoogle
+                        onLoginSuccess = { nombreRecibido ->
+                            nombreUsuario = nombreRecibido
                             navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
                         },
                         onNavigateToRegister = {}
@@ -145,13 +156,12 @@ fun MainScreen() {
                         nombreUsuario = nombreUsuario,
                         onBackClick = { navController.popBackStack() },
                         onGenerateAnother = { navController.popBackStack() },
-                        onLogout = cerrarSesion // <--- CONEXIÓN EN RESULT SCREEN
+                        onLogout = cerrarSesion
                     )
                 }
             }
         }
 
-        // --- CAPA 1: OVERLAY OSCURO ---
         AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
             Box(
                 modifier = Modifier
@@ -161,7 +171,6 @@ fun MainScreen() {
             )
         }
 
-        // --- CAPA 2: VENTANA DEL MENÚ (MAIN) ---
         if (isProfileMenuVisible) {
             Box(
                 modifier = Modifier
@@ -172,7 +181,7 @@ fun MainScreen() {
                 ProfileMenuCard(
                     nombreUsuario = nombreUsuario,
                     onClose = { isProfileMenuVisible = false },
-                    onLogout = cerrarSesion // <--- CONEXIÓN EN EL OVERLAY
+                    onLogout = cerrarSesion
                 )
             }
         }
@@ -180,7 +189,6 @@ fun MainScreen() {
 }
 
 // --- PANTALLAS DE APOYO ---
-
 @Composable
 fun PantallaInicio(onAbrirCamara: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

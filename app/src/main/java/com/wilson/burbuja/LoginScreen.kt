@@ -1,6 +1,5 @@
 package com.wilson.burbuja
 
-// --- IMPORTS: Librerías de Android, Compose, Google y Firebase ---
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -34,11 +33,9 @@ import kotlin.math.*
 
 @Composable
 fun LoginScreen(
-    // ¡CAMBIO CLAVE! Ahora onLoginSuccess exige un String (el nombre)
     onLoginSuccess: (String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
-    // --- 1. REFERENCIAS Y ESTADOS ---
     val context = LocalContext.current
     val auth = remember { FirebaseAuth.getInstance() }
     val scope = rememberCoroutineScope()
@@ -46,7 +43,7 @@ fun LoginScreen(
 
     var isLoading by remember { mutableStateOf(false) }
 
-    // --- 2. CONFIGURACIÓN DE GOOGLE SIGN-IN ---
+    // --- GOOGLE SIGN-IN CONFIG ---
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken("274602078486-6pd344j52agqs9svse9ue9d7pi78bt5n.apps.googleusercontent.com")
@@ -55,7 +52,6 @@ fun LoginScreen(
     }
     val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 
-    // --- 3. GESTOR DE RESULTADOS (EL PUENTE) ---
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -67,28 +63,24 @@ fun LoginScreen(
             auth.signInWithCredential(credential).addOnCompleteListener { taskAuth ->
                 if (taskAuth.isSuccessful) {
                     scope.launch {
-                        val nombreUsuario = account.displayName ?: "Usuario"
-                        snackbarHostState.showSnackbar("¡Sesión iniciada! Bienvenido, $nombreUsuario")
-                        delay(1500)
-                        // ¡CAMBIO CLAVE! Enviamos el nombre obtenido al MainActivity
+                        val nombreUsuario = account.displayName ?: "Wilson"
+                        snackbarHostState.showSnackbar("¡Hola de nuevo, $nombreUsuario!")
+                        delay(1000)
                         onLoginSuccess(nombreUsuario)
                     }
                 } else {
                     isLoading = false
-                    scope.launch { snackbarHostState.showSnackbar("Error al conectar con Firebase.") }
+                    scope.launch { snackbarHostState.showSnackbar("Error: No se pudo conectar con Firebase.") }
                 }
             }
         } catch (e: ApiException) {
             isLoading = false
-            scope.launch { snackbarHostState.showSnackbar("Inicio de sesión cancelado.") }
+            scope.launch { snackbarHostState.showSnackbar("Login de Google cancelado.") }
         }
     }
 
-    // --- 4. COLORES DE IDENTIDAD (TECNOMINIMALISMO) ---
     val navyBg = Color(0xFF1F2A37)
     val celesteIA = Color(0xFF7BCBFF)
-
-    // --- 5. LÓGICA DE ANIMACIÓN INTERACTIVA ---
     var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) }
     var isTouching by remember { mutableStateOf(false) }
 
@@ -98,7 +90,6 @@ fun LoginScreen(
         label = "pulse"
     )
 
-    // --- 6. ESTRUCTURA VISUAL (LAYOUT) ---
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = navyBg
@@ -126,7 +117,6 @@ fun LoginScreen(
                     .padding(horizontal = 30.dp, vertical = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // --- CABECERA ---
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
@@ -148,13 +138,10 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // --- BOTONES Y FEEDBACK ---
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = celesteIA,
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    )
+                    CircularProgressIndicator(color = celesteIA, modifier = Modifier.padding(bottom = 32.dp))
                 } else {
+                    // BOTÓN GOOGLE
                     Button(
                         onClick = {
                             isLoading = true
@@ -169,19 +156,23 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // BOTÓN INVITADO (ANÓNIMO)
                     OutlinedButton(
                         onClick = {
                             isLoading = true
                             auth.signInAnonymously().addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Accediendo como invitado...")
+                                        snackbarHostState.showSnackbar("Entrando como Invitado...")
                                         delay(1000)
-                                        // ¡CAMBIO CLAVE! Enviamos un nombre genérico para usuarios anónimos
-                                        onLoginSuccess("Invitado")
+                                        onLoginSuccess("Invitado") // <--- Esto activa la "I" en el Main
                                     }
                                 } else {
                                     isLoading = false
+                                    scope.launch {
+                                        // Esto te avisará si te olvidaste de activar "Anónimo" en la consola
+                                        snackbarHostState.showSnackbar("Error: Acceso anónimo no habilitado.")
+                                    }
                                 }
                             }
                         },
@@ -192,7 +183,6 @@ fun LoginScreen(
                         Text("Crear mi historia", color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
                 }
-
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
