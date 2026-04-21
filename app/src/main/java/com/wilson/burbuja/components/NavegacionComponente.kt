@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,8 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun NavegacionLiteral(
     navController: NavController,
     letraUsuario: String,
-    onProfileClick: () -> Unit,
-    onGalleryClick: () -> Unit // <--- Recibimos la acción desde el Main
+    onProfileClick: () -> Unit
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
@@ -40,6 +38,7 @@ fun NavegacionLiteral(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        // BARRA DE NAVEGACIÓN (Ahora con 2 ítems)
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -51,20 +50,13 @@ fun NavegacionLiteral(
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly // Distribuye los 2 iconos perfecto
             ) {
                 ItemNavegacionLiteral(
                     icon = Icons.Default.Home,
                     label = "Inicio",
                     selected = rutaActual == "inicio",
                     onClick = { navController.navigate("inicio") }
-                )
-
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.PhotoLibrary,
-                    label = "Galeria",
-                    selected = rutaActual == "galeria",
-                    onClick = { onGalleryClick() } // <--- Ahora dispara el selector
                 )
 
                 ItemNavegacionLiteral(
@@ -76,9 +68,9 @@ fun NavegacionLiteral(
             }
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-        // LA ELIPSE CON LA LETRA
+        // CÍRCULO DE PERFIL (Mantenemos tu diseño original)
         Surface(
             modifier = Modifier
                 .size(56.dp)
@@ -102,16 +94,38 @@ fun NavegacionLiteral(
 @Composable
 fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
     val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
+
     val modifierSeleccionado = if (selected) {
-        Modifier.clip(CircleShape).background(Color(0xFF7ACAFF).copy(alpha = 0.15f)).padding(horizontal = 16.dp, vertical = 13.dp)
+        Modifier
+            .clip(CircleShape)
+            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))
+            .padding(horizontal = 20.dp, vertical = 12.dp) // Un poco más de aire al ser solo 2
     } else {
         Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
     }
-    Box(modifier = Modifier.clip(CircleShape).clickable { onClick() }.then(modifierSeleccionado), contentAlignment = Alignment.Center) {
+
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable { onClick() }
+            .then(modifierSeleccionado),
+        contentAlignment = Alignment.Center
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = label, tint = colorContenido, modifier = Modifier.size(20.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = colorContenido,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = label, color = colorContenido, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+            Text(
+                text = label,
+                color = colorContenido,
+                fontSize = 14.sp, // Aumenté un toque el tamaño para que llene mejor
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1
+            )
         }
     }
 }

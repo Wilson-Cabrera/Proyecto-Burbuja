@@ -18,8 +18,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,7 +58,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope() // Clave para manejar los tiempos
+    val scope = rememberCoroutineScope()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
@@ -80,25 +82,23 @@ fun MainScreen() {
     val pantallaDeArranque = if (usuarioFirebase != null) "inicio" else "login"
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
 
-    // --- LANZADOR DE GALERÍA CORREGIDO ---
-    val galleryLauncher = rememberLauncherForActivityResult(
+    // --- FUNCIONALIDAD DE GALERÍA OCULTA ---
+    /* val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             uri?.let {
-                // Usamos el scope para manejar la espera
                 scope.launch {
-                    isProcessingImage = true // 1. Mostramos la carga
+                    isProcessingImage = true
                     val encodedUri = URLEncoder.encode(it.toString(), "UTF-8")
-
-                    delay(150) // 2. Breve pausa para que el UI pinte el overlay
+                    delay(150)
                     navController.navigate("story_configuration/$encodedUri")
-
-                    delay(800) // 3. Esperamos a que la navegación realmente suceda
-                    isProcessingImage = false // 4. Recién ahí apagamos la carga
+                    delay(800)
+                    isProcessingImage = false
                 }
             }
         }
     )
+    */
 
     val cerrarSesion = {
         FirebaseAuth.getInstance().signOut()
@@ -110,7 +110,7 @@ fun MainScreen() {
         navController.navigate("login") { popUpTo(0) { inclusive = true } }
     }
 
-    val mostrarBottomBar = rutaActual in listOf("inicio", "galeria", "guardados")
+    val mostrarBottomBar = rutaActual in listOf("inicio", "guardados")
 
     var tienePermiso by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
@@ -122,18 +122,18 @@ fun MainScreen() {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            // Aplicamos blur al fondo si hay carga o menú abierto
             modifier = Modifier.blur(if (isProfileMenuVisible || isProcessingImage) 20.dp else 0.dp),
             containerColor = Color(0xFF1F2A37),
             bottomBar = {
-                AnimatedVisibility(visible = mostrarBottomBar) {
+                AnimatedVisibility(
+                    visible = mostrarBottomBar,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                ) {
                     NavegacionLiteral(
                         navController = navController,
                         letraUsuario = letraUsuario,
-                        onProfileClick = { isProfileMenuVisible = !isProfileMenuVisible },
-                        onGalleryClick = {
-                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
+                        onProfileClick = { isProfileMenuVisible = !isProfileMenuVisible }
                     )
                 }
             }
@@ -154,17 +154,28 @@ fun MainScreen() {
                 }
 
                 composable("inicio") {
-                    Box(modifier = Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
-                        PantallaInicio(onAbrirCamara = {
-                            if (tienePermiso) navController.navigate("camara")
-                            else launcherCamara.launch(Manifest.permission.CAMERA)
-                        })
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = paddingValues.calculateBottomPadding())) {
+                        PantallaInicio(
+                            onAbrirCamara = {
+                                if (tienePermiso) navController.navigate("camara")
+                                else launcherCamara.launch(Manifest.permission.CAMERA)
+                            }
+                            // , onAbrirGaleria = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                        )
                     }
                 }
 
-                composable("galeria") { Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) { PantallaGaleria() } }
-                composable("guardados") { Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) { PantallaGuardados() } }
-                composable("camara") { CameraScreen(navController, onBackClicked = { navController.popBackStack() }) }
+                composable("guardados") {
+                    Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
+                        PantallaGuardados()
+                    }
+                }
+
+                composable("camara") {
+                    CameraScreen(navController, onBackClicked = { navController.popBackStack() })
+                }
 
                 composable("preview_screen/{photoUri}") { backStackEntry ->
                     val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
@@ -184,7 +195,9 @@ fun MainScreen() {
                 }
 
                 composable("result_screen") {
-                    val storyData = remember { navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData") ?: StoryData() }
+                    val storyData = remember {
+                        navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData") ?: StoryData()
+                    }
                     ResultScreen(
                         storyData = storyData,
                         nombreUsuario = nombreUsuario,
@@ -196,12 +209,9 @@ fun MainScreen() {
             }
         }
 
-        // --- CAPA DE CARGA (OVERLAY) ---
-        AnimatedVisibility(
-            visible = isProcessingImage,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
+        // --- OVERLAY DE CARGA (Comentado ya que depende de la galería) ---
+        /*
+        AnimatedVisibility(visible = isProcessingImage, enter = fadeIn(), exit = fadeOut()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -211,57 +221,108 @@ fun MainScreen() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color(0xFF7ACAFF))
                     Spacer(modifier = Modifier.height(20.dp))
-                    Text(
-                        "Procesando imagen...",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text("Procesando imagen...", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
+        */
 
-        // --- CAPA DE PERFIL ---
+        // --- OVERLAY DE PERFIL ---
         AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable { isProfileMenuVisible = false })
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .clickable { isProfileMenuVisible = false }
+            )
         }
 
         if (isProfileMenuVisible) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(bottom = 95.dp, end = 20.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 95.dp, end = 20.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
-                ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = cerrarSesion)
+                ProfileMenuCard(
+                    nombreUsuario = nombreUsuario,
+                    onClose = { isProfileMenuVisible = false },
+                    onLogout = cerrarSesion
+                )
             }
         }
     }
 }
 
-// --- PANTALLAS DE APOYO ---
+// --- COMPONENTES DE PANTALLA ---
+
 @Composable
-fun PantallaInicio(onAbrirCamara: () -> Unit) {
+fun PantallaInicio(onAbrirCamara: () -> Unit /*, onAbrirGaleria: () -> Unit */) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("¿Qué historia hay a tu alrededor?", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 32.dp))
+            Text(
+                "¿Qué historia hay a tu alrededor?",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 40.dp)
+            )
+
+            // El único protagonista ahora es la cámara
             BotonCamaraPrincipal(onClick = onAbrirCamara)
+
+            // Comentamos el botón secundario para que no aparezca en la UI
+            /* Spacer(modifier = Modifier.height(20.dp))
+            BotonGaleriaSecundario(onClick = onAbrirGaleria)
+            */
         }
     }
 }
 
 @Composable
 fun BotonCamaraPrincipal(onClick: () -> Unit) {
-    OutlinedButton(
+    Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(0.8f).height(56.dp),
-        shape = CircleShape,
-        border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.6f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+        modifier = Modifier
+            .fillMaxWidth(0.8f)
+            .height(60.dp),
+        shape = RoundedCornerShape(30.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF7ACAFF),
+            contentColor = Color(0xFF1F2A37)
+        )
     ) {
-        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
+        Icon(Icons.Default.CameraAlt, contentDescription = null)
         Spacer(Modifier.width(12.dp))
-        Text("Abrir la cámara", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text("Abrir la cámara", fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
 
-@Composable fun PantallaGaleria() { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
-@Composable fun PantallaGuardados() { Box(Modifier.fillMaxSize().background(Color(0xFF1F2A37))) }
+/* @Composable
+fun BotonGaleriaSecundario(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth(0.8f)
+            .height(56.dp),
+        shape = RoundedCornerShape(30.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+    ) {
+        Icon(
+            Icons.Default.PhotoLibrary,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text("Elegir de mi galería", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
+    }
+}
+*/
+
+@Composable
+fun PantallaGuardados() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("Mis Burbujas Guardadas", color = Color.White)
+    }
+}
