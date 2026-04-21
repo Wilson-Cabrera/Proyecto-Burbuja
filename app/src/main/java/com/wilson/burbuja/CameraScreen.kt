@@ -12,6 +12,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,7 +51,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.random.Random
 
-// Modelo de partículas para el scanner
+// Modelo de partículas
 data class ParticulaScanner(
     val xRelativa: Float,
     val yRelativa: Float,
@@ -69,7 +70,6 @@ fun CameraScreen(
     val scope = rememberCoroutineScope()
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    // --- NARRATIVA ---
     val frasesNarrativas = remember {
         listOf(
             "¿Y si esto fuera un cuento?",
@@ -81,7 +81,6 @@ fun CameraScreen(
     }
     val fraseSeleccionada = remember { frasesNarrativas.random() }
 
-    // --- ESTADOS ---
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
     var procesandoCaptura by remember { mutableStateOf(false) }
@@ -89,6 +88,9 @@ fun CameraScreen(
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var girandoCamara by remember { mutableStateOf(false) }
+
+    var zoomLevel by remember { mutableFloatStateOf(1f) }
+    var mostrarZoomLabel by remember { mutableStateOf(false) }
 
     val preview = remember { Preview.Builder().build() }
     val imageCapture = remember {
@@ -103,6 +105,7 @@ fun CameraScreen(
     ) { uri ->
         uri?.let {
             val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
+            // CORREGIDO: preview -> preview_screen
             navController.navigate("preview_screen/$encodedUri")
         }
     }
@@ -114,13 +117,11 @@ fun CameraScreen(
             cameraProvider.unbindAll()
             val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageCapture)
             cameraControl = camera.cameraControl
-            imageCapture.flashMode = flashMode
         } catch (e: Exception) { Log.e("BURBUJA", "Error: ${e.message}") }
     }
 
-    // Animaciones de GPU para el efecto de desenfoque al girar
-    val blurAlpha by animateFloatAsState(targetValue = if (girandoCamara) 0.7f else 1f, animationSpec = tween(300))
-    val blurScale by animateFloatAsState(targetValue = if (girandoCamara) 1.08f else 1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+    val blurAlpha by animateFloatAsState(targetValue = if (girandoCamara) 0.7f else 1f, label = "blurAlpha")
+    val blurScale by animateFloatAsState(targetValue = if (girandoCamara) 1.08f else 1f, label = "blurScale")
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
@@ -132,10 +133,23 @@ fun CameraScreen(
 
                     val detector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                         override fun onScale(d: ScaleGestureDetector): Boolean {
-                            cameraControl?.setLinearZoom(d.scaleFactor - 1f)
+                            val sensibilidad = 3.5f
+                            val delta = (d.scaleFactor - 1f) * sensibilidad
+                            val newZoom = (zoomLevel + delta).coerceIn(1f, 5f)
+
+                            if (newZoom != zoomLevel) {
+                                zoomLevel = newZoom
+                                cameraControl?.setLinearZoom((zoomLevel - 1f) / 4f)
+                                mostrarZoomLabel = true
+                            }
                             return true
                         }
+
+                        override fun onScaleEnd(detector: ScaleGestureDetector) {
+                            scope.launch { delay(1000); mostrarZoomLabel = false }
+                        }
                     })
+
                     setOnTouchListener { v, e ->
                         detector.onTouchEvent(e)
                         if (e.action == MotionEvent.ACTION_DOWN) {
@@ -147,44 +161,53 @@ fun CameraScreen(
                     }
                 }
             },
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    alpha = blurAlpha
-                    scaleX = blurScale
-                    scaleY = blurScale
-                }
+            modifier = Modifier.fillMaxSize()
+                .graphicsLayer { alpha = blurAlpha; scaleX = blurScale; scaleY = blurScale }
                 .then(if (girandoCamara) Modifier.blur(15.dp) else Modifier)
         )
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f)), radius = size.maxDimension / 1.3f))
+            drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f))))
         }
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
 
+        AnimatedVisibility(
+            visible = mostrarZoomLabel,
+            enter = fadeIn() + scaleIn(initialScale = 0.9f),
+            exit = fadeOut() + scaleOut(targetScale = 0.9f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 180.dp)
+        ) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.6f))
+            ) {
+                Text(
+                    text = "ZOOM ${"%.1f".format(zoomLevel)}x",
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
-            CameraTopBar(
-                onBackClicked = onBackClicked,
-                flashMode = flashMode,
-                triggerScanner = triggerScanner,
-                fraseNarrativa = fraseSeleccionada,
-                onFlashToggle = {
-                    flashMode = if (flashMode == ImageCapture.FLASH_MODE_OFF) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
-                    imageCapture.flashMode = flashMode
-                }
-            )
+            CameraTopBar(onBackClicked, flashMode, triggerScanner, fraseSeleccionada) {
+                flashMode = if (flashMode == ImageCapture.FLASH_MODE_OFF) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+                imageCapture.flashMode = flashMode
+            }
             Spacer(modifier = Modifier.weight(1f))
             CameraBottomControls(
                 onCaptureClick = {
                     if (procesandoCaptura || girandoCamara) return@CameraBottomControls
                     scope.launch {
-                        triggerScanner = true
-                        delay(700)
-                        procesandoCaptura = true
+                        triggerScanner = true; delay(700); procesandoCaptura = true
                         tomarFotoTemporal(context, imageCapture) { uri ->
                             val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
-                            // NAVEGACIÓN CORREGIDA: Sin popUpTo para poder volver a la cámara
+                            // CORREGIDO: preview -> preview_screen
                             navController.navigate("preview_screen/$encodedUri")
                             procesandoCaptura = false
                         }
@@ -193,11 +216,9 @@ fun CameraScreen(
                 onGalleryClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onSwitchCameraClick = {
                     scope.launch {
-                        girandoCamara = true
-                        delay(100)
+                        girandoCamara = true; delay(100)
                         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-                        delay(400)
-                        girandoCamara = false
+                        delay(400); girandoCamara = false
                     }
                 }
             )
@@ -206,14 +227,11 @@ fun CameraScreen(
         VisorMinimalistaOverlay()
         EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
-        AnimatedVisibility(visible = procesandoCaptura, enter = fadeIn(tween(100)), exit = fadeOut(tween(400))) {
-            val flashAlpha by animateFloatAsState(targetValue = if (procesandoCaptura) 0f else 1f, animationSpec = tween(150), label = "Flash")
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = flashAlpha)))
+        AnimatedVisibility(visible = procesandoCaptura, enter = fadeIn(), exit = fadeOut()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.2f)))
         }
     }
 }
-
-// --- COMPONENTES AUXILIARES ---
 
 @Composable
 fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
@@ -235,12 +253,15 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Bool
     }
 }
 
+
+
+//controles de la camara capsulaaaaaa
 @Composable
 fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit, onSwitchCameraClick: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(bottom = 40.dp, start = 24.dp, end = 24.dp)
-            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
+            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.0f))
+            .border(0.5.dp, Color.White.copy(alpha = 0.0f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape).clickable { onGalleryClick() }, contentAlignment = Alignment.Center) {

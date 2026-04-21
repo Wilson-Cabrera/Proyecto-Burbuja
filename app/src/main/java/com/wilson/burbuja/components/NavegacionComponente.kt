@@ -2,143 +2,129 @@ package com.wilson.burbuja
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
-// Colores del sistema de diseño
-val SurfaceDark = Color(0xFF2D3748).copy(alpha = 0.9f)
-val AccentCyan = Color(0xFF38BDF8)
-val TextWhite = Color(0xFFFFFFFF)
-
 @Composable
-fun NavegacionLiteral(navController: NavController) {
+fun NavegacionLiteral(
+    navController: NavController,
+    letraUsuario: String,
+    onProfileClick: () -> Unit
+) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    val rutaActual = navBackStackEntry?.destination?.route
 
     Row(
         modifier = Modifier
-            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
             .fillMaxWidth()
-            .height(56.dp), // Altura fina de 56dp
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // --- CÁPSULA PRINCIPAL ---
+        // BARRA DE NAVEGACIÓN (Ahora con 2 ítems)
         Surface(
-            modifier = Modifier.weight(1f),
-            shape = CircleShape,
-            color = Color(0xFF6E88A6),
-            shadowElevation = 4.dp
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = Color(0xFF6E88A6).copy(alpha = 0.9f),
+            shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly // Distribuye los 2 iconos perfecto
             ) {
-                ItemNavegacion(
+                ItemNavegacionLiteral(
                     icon = Icons.Default.Home,
                     label = "Inicio",
-                    isSelected = currentRoute == "inicio",
-                    onClick = { if (currentRoute != "inicio") navController.navigate("inicio") }
+                    selected = rutaActual == "inicio",
+                    onClick = { navController.navigate("inicio") }
                 )
-                ItemNavegacion(
-                    icon = Icons.Default.PhotoLibrary,
-                    label = "Galeria",
-                    isSelected = currentRoute == "galeria",
-                    onClick = { if (currentRoute != "galeria") navController.navigate("galeria") }
-                )
-                ItemNavegacion(
+
+                ItemNavegacionLiteral(
                     icon = Icons.Default.Star,
                     label = "Guardados",
-                    isSelected = currentRoute == "guardados",
-                    onClick = { if (currentRoute != "guardados") navController.navigate("guardados") }
+                    selected = rutaActual == "guardados",
+                    onClick = { navController.navigate("guardados") }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-        // --- CÍRCULO USUARIO ---
+        // CÍRCULO DE PERFIL (Mantenemos tu diseño original)
         Surface(
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier
+                .size(56.dp)
+                .clickable { onProfileClick() },
             shape = CircleShape,
-            color = SurfaceDark,
+            color = Color(0xFF6E88A6),
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(text = "W", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = letraUsuario.uppercase(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
 }
 
 @Composable
-fun RowScope.ItemNavegacion(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    // Definimos los colores para el contraste
-    val colorActivoContenido = Color(0xFF1F2A37) // Oscuro para que resalte sobre el celeste
-    val colorInactivoContenido = Color.White
+fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
+
+    val modifierSeleccionado = if (selected) {
+        Modifier
+            .clip(CircleShape)
+            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))
+            .padding(horizontal = 20.dp, vertical = 12.dp) // Un poco más de aire al ser solo 2
+    } else {
+        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+    }
 
     Box(
         modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null // Eliminamos el "ripple" gris para que sea más limpio
-            ) { onClick() },
+            .clip(CircleShape)
+            .clickable { onClick() }
+            .then(modifierSeleccionado),
         contentAlignment = Alignment.Center
     ) {
-        // --- LA ELIPSE DE SELECCIÓN ---
-        if (isSelected) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .height(45.dp),
-                shape = CircleShape,
-                // Cambiá esta línea:
-                color = Color(0xFF7ACAFF).copy(alpha = 0.4f) // 0.4 es 40% de opacidad
-            ) {}
-        }
-
-        // --- ICONO Y TEXTO ---
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
-                // Si está seleccionado, usamos el color oscuro; si no, blanco
-                tint = if (isSelected) colorActivoContenido else colorInactivoContenido,
-                modifier = Modifier.size(18.dp)
+                contentDescription = label,
+                tint = colorContenido,
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
-                color = if (isSelected) colorActivoContenido else colorInactivoContenido,
-                fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                color = colorContenido,
+                fontSize = 14.sp, // Aumenté un toque el tamaño para que llene mejor
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1
             )
         }
     }

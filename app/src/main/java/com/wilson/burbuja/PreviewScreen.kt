@@ -121,8 +121,15 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
                     }
 
                     // BOTÓN CONFIRMAR
+// BOTÓN CONFIRMAR
                     Button(
-                        onClick = { /* Próxima etapa: IA */ },
+                        onClick = {
+                            // 1. Codificamos la URI para que sea segura para la navegación
+                            val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
+
+                            // 2. Navegamos a la ruta que definimos en el MainActivity
+                            navController.navigate("story_configuration/$encodedUri")
+                        },
                         modifier = Modifier
                             .height(54.dp)
                             .width(130.dp),
@@ -133,8 +140,10 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
                         Spacer(Modifier.width(8.dp))
                         Text("LISTO", color = Color(0xFF111827), fontWeight = FontWeight.Bold)
                     }
+
                 }
             }
         }
     }
 }
+

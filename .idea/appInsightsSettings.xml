@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.wilson.burbuja" />
+                  <option name="mobileSdkAppId" value="1:274602078486:android:45867682d51362002ae037" />
+                  <option name="projectId" value="burbuja-ai" />
+                  <option name="projectNumber" value="274602078486" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
