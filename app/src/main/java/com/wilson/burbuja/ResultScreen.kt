@@ -107,7 +107,7 @@ fun ResultScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 16.dp)
                 ) {
-                    listOf(storyData.genero, storyData.tono, storyData.ambiente).forEach { tag ->
+                    listOf(storyData.genero, storyData.tono, storyData.epoca).forEach { tag ->
                         Surface(
                             color = violetaRegenerativo.copy(alpha = 0.2f),
                             shape = RoundedCornerShape(8.dp),

@@ -52,26 +52,26 @@ fun StoryConfigurationScreen(
     photoUri: String,
     onBackClick: () -> Unit = {}
 ) {
-    // 1. ESTADOS
+    // 1. ESTADOS DE SELECCIÓN
     var generoSel by remember { mutableStateOf("Misterio") }
     var narradorSel by remember { mutableStateOf("Primera persona") }
-    var tonoSel by remember { mutableStateOf("Oscuro") }
-    var ambienteSel by remember { mutableStateOf("Noche") }
-    var promptExtra by remember { mutableStateOf("") }
+    var tonoSel by remember { mutableStateOf("Épico") }
+    var epocaSel by remember { mutableStateOf("Actual") }
+    var detonanteSel by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // FONDO BLUR
+        // FONDO MULTIMEDIA
         AsyncImage(
             model = photoUri,
             contentDescription = null,
-            modifier = Modifier.fillMaxSize().blur(10.dp),
+            modifier = Modifier.fillMaxSize().blur(15.dp),
             contentScale = ContentScale.Crop
         )
 
-        // FILTRO NAVY
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.7f)))
+        // OVERLAY DARK
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.85f)))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -82,11 +82,12 @@ fun StoryConfigurationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .imePadding() // <--- EL CAMBIO: Empuja el contenido hacia arriba cuando sale el teclado
                     .padding(horizontal = 24.dp)
                     .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // BOTÓN VOLVER
+                // BOTÓN VOLVER (Original)
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
@@ -101,7 +102,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // TÍTULOS
+                // TÍTULOS (Original)
                 Text(
                     text = "Dale forma a tu cuento",
                     color = Color.White,
@@ -130,68 +131,60 @@ fun StoryConfigurationScreen(
                     contentDescription = "Foto miniatura",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(135.dp)
-                        .shadow(12.dp, RoundedCornerShape(24.dp), spotColor = Color.Black.copy(alpha = 0.9f))
-                        .clip(RoundedCornerShape(24.dp)),
+                        .height(150.dp)
+                        .shadow(15.dp, RoundedCornerShape(28.dp))
+                        .clip(RoundedCornerShape(28.dp)),
                     contentScale = ContentScale.Crop
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // --- CATEGORÍAS (Género, Narrador, Tono, Ambiente) ---
-                CategorySection(title = "Género")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 5
-                ) { index ->
+                // --- SECCIÓN 1: GÉNERO ---
+                CategoryHeader(title = "Género")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
                     val opciones = listOf("Aventura", "Misterio", "Fantasía", "Terror", "Ciencia ficción")
                     BurbujaChip(text = opciones[index], isSelected = generoSel == opciones[index], onClick = { generoSel = opciones[index] })
                 }
 
-                CategorySection(title = "Narrador")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 3
-                ) { index ->
-                    val opciones = listOf("Primera persona", "Tercera persona", "Omnisciente")
+                // --- SECCIÓN 2: NARRADOR ---
+                CategoryHeader(title = "Narrador")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 3) { index ->
+                    val opciones = listOf("Primera persona", "Segunda persona", "Omnisciente")
                     BurbujaChip(text = opciones[index], isSelected = narradorSel == opciones[index], onClick = { narradorSel = opciones[index] })
                 }
 
-                CategorySection(title = "Tono")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 3
-                ) { index ->
-                    val opciones = listOf("Divertido", "Oscuro", "Épico")
+                // --- SECCIÓN 3: TONO ---
+                CategoryHeader(title = "Tono")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
+                    val opciones = listOf("Épico", "Mágico", "Humorístico", "Nostálgico", "Distópico")
                     BurbujaChip(text = opciones[index], isSelected = tonoSel == opciones[index], onClick = { tonoSel = opciones[index] })
                 }
 
-                CategorySection(title = "Ambiente")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 4
-                ) { index ->
-                    val opciones = listOf("Día", "Noche", "Futuro", "Antiguo")
-                    BurbujaChip(text = opciones[index], isSelected = ambienteSel == opciones[index], onClick = { ambienteSel = opciones[index] })
+                // --- SECCIÓN 4: ÉPOCA ---
+                CategoryHeader(title = "Época")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
+                    val opciones = listOf("Prehistoria", "Medieval", "Actual", "Futurista", "Universo alternativo")
+                    BurbujaChip(text = opciones[index], isSelected = epocaSel == opciones[index], onClick = { epocaSel = opciones[index] })
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // AGREGAR ALGO EXTRA
+                // --- SECCIÓN 5: EL DETONANTE (INPUT) ---
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "Agrega algo a tu historia...", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
+                    Text(text = "El Detonante", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
                     HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = Color(0xFF74A9D2).copy(alpha = 0.5f))
                 }
 
                 OutlinedTextField(
-                    value = promptExtra,
-                    onValueChange = { promptExtra = it },
+                    value = detonanteSel,
+                    onValueChange = { detonanteSel = it },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    placeholder = { Text(text = "Por ejemplo: que tenga un final inesperado...", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp, fontFamily = Inter) },
+                    placeholder = {
+                        Text(
+                            text = "Ej:\"Un portal se abre...\", \"Una sombra aparece...\"",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 12.sp,
+                            fontFamily = Inter
+                        )
+                    },
                     leadingIcon = {
                         Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = Color(0xFF7B61FF)) {
                             Box(contentAlignment = Alignment.Center) {
@@ -212,73 +205,62 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // --- BOTÓN GENERAR CON INTEGRACIÓN DE DATOS ---
+                // BOTÓN GENERAR
                 Button(
                     onClick = {
                         val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
 
-                        // 1. Creamos el objeto de datos con lo seleccionado
                         val dataParaIA = StoryData(
                             photoUri = photoUri,
                             genero = generoSel,
                             narrador = narradorSel,
                             tono = tonoSel,
-                            ambiente = ambienteSel,
-                            extra = promptExtra
+                            epoca = epocaSel,
+                            detonante = detonanteSel
                         )
 
-                        // 2. LO GUARDAMOS EN EL HISTORIAL DE NAVEGACIÓN (Clave para que ResultScreen lo vea)
                         navController.currentBackStackEntry?.savedStateHandle?.set("storyData", dataParaIA)
-
-                        println("🐐 Cabra dice: Mochila guardada y enviando a Loading -> $dataParaIA")
-
-                        // 3. Navegamos a la pantalla de carga
                         navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .shadow(8.dp, RoundedCornerShape(28.dp)),
-                    shape = RoundedCornerShape(28.dp),
+                        .height(60.dp)
+                        .shadow(12.dp, RoundedCornerShape(30.dp)),
+                    shape = RoundedCornerShape(30.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF74A9D2),
                         contentColor = Color.White
                     )
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Generar",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontFamily = Inter,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = "Generar", fontSize = 18.sp, fontFamily = Inter, fontWeight = FontWeight.Bold, color = Color(0xFFffffff))
                 }
 
-                Spacer(modifier = Modifier.height(50.dp))
+                Spacer(modifier = Modifier.height(60.dp))
             }
         }
     }
 }
 
-// --- COMPONENTES AUXILIARES ---
+// --- CATEGORY HEADER Y BURBUJA CHIP (Se mantienen igual) ---
 @Composable
-fun CategorySection(title: String) {
-    Spacer(modifier = Modifier.height(24.dp))
+fun CategoryHeader(title: String) {
+    Spacer(modifier = Modifier.height(28.dp))
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = title, color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.Start))
-        HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
+        Text(
+            text = title.uppercase(),
+            color = Color(0xFFffffff),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 1.5.sp,
+            fontFamily = Inter
+        )
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            thickness = 0.9.dp,
+            color = Color(0xFF7ACAFF).copy(alpha = 0.9f)
+        )
     }
 }
 
@@ -286,11 +268,17 @@ fun CategorySection(title: String) {
 fun BurbujaChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) Color(0xFF7B61FF) else Color(0xFF1F2A37).copy(alpha = 0.4f),
-        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFF74A9D2).copy(alpha = 0.9f)),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isSelected) Color(0xFF7B61FF) else Color(0xFF1F2A37).copy(0.5f),
+        border = if (isSelected) null else BorderStroke(0.9.dp, Color(0xFF74A9D2).copy(0.9f)),
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
-        Text(text = text, color = if (isSelected) Color(0xFF0F172A) else Color.White, fontSize = 14.sp, fontFamily = Inter, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text(
+            text = text,
+            color = if (isSelected) Color.White else Color.White.copy(0.8f),
+            fontSize = 13.sp,
+            fontFamily = Inter,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
     }
 }
