@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -62,6 +63,9 @@ fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
+    // Instanciamos el "cerebro" de la IA para toda la app
+    val storyViewModel: StoryViewModel = viewModel()
+
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     var isProcessingImage by remember { mutableStateOf(false) }
 
@@ -81,24 +85,6 @@ fun MainScreen() {
 
     val pantallaDeArranque = if (usuarioFirebase != null) "inicio" else "login"
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "U"
-
-    // --- FUNCIONALIDAD DE GALERÍA OCULTA ---
-    /* val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            uri?.let {
-                scope.launch {
-                    isProcessingImage = true
-                    val encodedUri = URLEncoder.encode(it.toString(), "UTF-8")
-                    delay(150)
-                    navController.navigate("story_configuration/$encodedUri")
-                    delay(800)
-                    isProcessingImage = false
-                }
-            }
-        }
-    )
-    */
 
     val cerrarSesion = {
         FirebaseAuth.getInstance().signOut()
@@ -162,7 +148,6 @@ fun MainScreen() {
                                 if (tienePermiso) navController.navigate("camara")
                                 else launcherCamara.launch(Manifest.permission.CAMERA)
                             }
-                            // , onAbrirGaleria = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                         )
                     }
                 }
@@ -184,14 +169,24 @@ fun MainScreen() {
 
                 composable("story_configuration/{photoUri}") { backStackEntry ->
                     val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
-                    StoryConfigurationScreen(navController, uri, onBackClick = { navController.popBackStack() })
+                    StoryConfigurationScreen(
+                        navController = navController,
+                        photoUri = uri,
+                        viewModel = storyViewModel, // Conectado
+                        onBackClick = { navController.popBackStack() }
+                    )
                 }
 
                 composable("loading/{photoUri}") { backStackEntry ->
                     val uri = URLDecoder.decode(backStackEntry.arguments?.getString("photoUri") ?: "", "UTF-8")
-                    LoadingScreen(navController, uri, onLoadingFinished = {
-                        navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } }
-                    })
+                    LoadingScreen(
+                        navController = navController,
+                        photoUri = uri,
+                        viewModel = storyViewModel, // <-- EL CAMBIO CLAVE AQUÍ
+                        onLoadingFinished = {
+                            navController.navigate("result_screen") { popUpTo("loading/{photoUri}") { inclusive = true } }
+                        }
+                    )
                 }
 
                 composable("result_screen") {
@@ -208,24 +203,6 @@ fun MainScreen() {
                 }
             }
         }
-
-        // --- OVERLAY DE CARGA (Comentado ya que depende de la galería) ---
-        /*
-        AnimatedVisibility(visible = isProcessingImage, enter = fadeIn(), exit = fadeOut()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF1F2A37).copy(alpha = 0.9f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFF7ACAFF))
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Text("Procesando imagen...", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-        */
 
         // --- OVERLAY DE PERFIL ---
         AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
@@ -257,7 +234,7 @@ fun MainScreen() {
 // --- COMPONENTES DE PANTALLA ---
 
 @Composable
-fun PantallaInicio(onAbrirCamara: () -> Unit /*, onAbrirGaleria: () -> Unit */) {
+fun PantallaInicio(onAbrirCamara: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -268,13 +245,7 @@ fun PantallaInicio(onAbrirCamara: () -> Unit /*, onAbrirGaleria: () -> Unit */) 
                 modifier = Modifier.padding(bottom = 40.dp)
             )
 
-            // El único protagonista ahora es la cámara
             BotonCamaraPrincipal(onClick = onAbrirCamara)
-
-            // Comentamos el botón secundario para que no aparezca en la UI
-            /* Spacer(modifier = Modifier.height(20.dp))
-            BotonGaleriaSecundario(onClick = onAbrirGaleria)
-            */
         }
     }
 }
@@ -297,28 +268,6 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
         Text("Abrir la cámara", fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
-
-/* @Composable
-fun BotonGaleriaSecundario(onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth(0.8f)
-            .height(56.dp),
-        shape = RoundedCornerShape(30.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-    ) {
-        Icon(
-            Icons.Default.PhotoLibrary,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.7f)
-        )
-        Spacer(Modifier.width(12.dp))
-        Text("Elegir de mi galería", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
-    }
-}
-*/
 
 @Composable
 fun PantallaGuardados() {

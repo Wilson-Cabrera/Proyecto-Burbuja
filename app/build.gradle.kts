@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
     id("com.google.gms.google-services")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -42,6 +43,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // Activado para exponer GEMINI_API_KEY desde local.properties
     }
 }
 
@@ -77,6 +79,9 @@ dependencies {
 
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // SDK de Google AI para Gemini
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     // Testing
     testImplementation(libs.junit)

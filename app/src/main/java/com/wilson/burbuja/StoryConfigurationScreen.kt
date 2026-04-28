@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext // <-- NUEVO IMPORT
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -50,8 +51,12 @@ val Inter = FontFamily(
 fun StoryConfigurationScreen(
     navController: NavController,
     photoUri: String,
+    viewModel: StoryViewModel, // <--- NUEVO: Recibimos el ViewModel ("el cerebro")
     onBackClick: () -> Unit = {}
 ) {
+    // NUEVO: Obtenemos el contexto de Android, necesario para procesar la imagen
+    val context = LocalContext.current
+
     // 1. ESTADOS DE SELECCIÓN
     var generoSel by remember { mutableStateOf("Misterio") }
     var narradorSel by remember { mutableStateOf("Primera persona") }
@@ -82,12 +87,12 @@ fun StoryConfigurationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .imePadding() // <--- EL CAMBIO: Empuja el contenido hacia arriba cuando sale el teclado
+                    .imePadding()
                     .padding(horizontal = 24.dp)
                     .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // BOTÓN VOLVER (Original)
+                // BOTÓN VOLVER
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
@@ -102,7 +107,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // TÍTULOS (Original)
+                // TÍTULOS
                 Text(
                     text = "Dale forma a tu cuento",
                     color = Color.White,
@@ -205,7 +210,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // BOTÓN GENERAR
+                // --- MODIFICACIÓN EN EL BOTÓN GENERAR ---
                 Button(
                     onClick = {
                         val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
@@ -219,7 +224,13 @@ fun StoryConfigurationScreen(
                             detonante = detonanteSel
                         )
 
+                        // 1. Opcional: Seguimos guardando el dato en la pila de navegación por si otra pantalla lo necesita
                         navController.currentBackStackEntry?.savedStateHandle?.set("storyData", dataParaIA)
+
+                        // 2. NUEVO: Le damos la orden al ViewModel para que empiece a procesar en segundo plano
+                        viewModel.generarHistoria(context, dataParaIA)
+
+                        // 3. Navegamos a la pantalla de carga (que ahora solo tendrá que mirar el estado del ViewModel)
                         navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
@@ -243,7 +254,7 @@ fun StoryConfigurationScreen(
     }
 }
 
-// --- CATEGORY HEADER Y BURBUJA CHIP (Se mantienen igual) ---
+// --- CATEGORY HEADER Y BURBUJA CHIP ---
 @Composable
 fun CategoryHeader(title: String) {
     Spacer(modifier = Modifier.height(28.dp))

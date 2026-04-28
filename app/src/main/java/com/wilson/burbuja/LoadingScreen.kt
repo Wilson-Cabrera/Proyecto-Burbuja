@@ -4,6 +4,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,16 +15,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import kotlinx.coroutines.delay
 
 @Composable
 fun LoadingScreen(
-    navController: NavController, // Agregamos esto para acceder a la mochila
+    navController: NavController,
     photoUri: String,
+    viewModel: StoryViewModel,
     onLoadingFinished: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "scanner")
@@ -36,29 +39,20 @@ fun LoadingScreen(
         ), label = "wave"
     )
 
-    // --- LÓGICA DE PREPARACIÓN DE DATOS ---
-// --- LÓGICA DE PREPARACIÓN DE DATOS ---
-    LaunchedEffect(Unit) {
-        // 1. Buscamos la mochila que viene de la pantalla anterior (Configuración)
-        val handleAnterior = navController.previousBackStackEntry?.savedStateHandle
-        val storyData = handleAnterior?.get<StoryData>("storyData") ?: StoryData()
+    val currentState = viewModel.uiState
 
-        // 2. Generamos el cuento simulado
-        val cuentoFake = StoryMockProvider.obtenerCuentoSimulado(storyData.genero)
-
-        // 3. "Metemos" el cuento en la mochila
-        val mochilaActualizada = storyData.copy(resultStory = cuentoFake)
-
-        // 4. LA CLAVE: Guardamos en la pantalla ANTERIOR, no en la actual
-        // Así, cuando la carga desaparezca, el dato sigue vivo en la configuración
-        handleAnterior?.set("storyData", mochilaActualizada)
-
-        // 5. Los 4 segundos de facha
-        delay(4000)
-
-        // 6. ¡Listo!
-        onLoadingFinished()
+    // --- LÓGICA DE ESCUCHA ---
+    LaunchedEffect(currentState) {
+        if (currentState is StoryState.Success) {
+            val handleAnterior = navController.previousBackStackEntry?.savedStateHandle
+            val storyData = handleAnterior?.get<StoryData>("storyData") ?: StoryData()
+            val mochilaActualizada = storyData.copy(resultStory = currentState.story)
+            handleAnterior?.set("storyData", mochilaActualizada)
+            onLoadingFinished()
+        }
+        // Eliminamos el bloque de Error de aquí para que NO navegue hacia atrás automáticamente.
     }
+
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37))) {
         AsyncImage(
             model = photoUri,
@@ -68,26 +62,27 @@ fun LoadingScreen(
             alpha = 0.4f
         )
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val centerOffset = Offset(size.width / 2f, size.height / 2f)
-            val maxRadius = size.minDimension
+        // Solo mostramos la animación si NO hay error
+        if (currentState !is StoryState.Error) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val centerOffset = Offset(size.width / 2f, size.height / 2f)
+                val maxRadius = size.minDimension
 
-            // Onda 1: Violeta
-            drawCircle(
-                color = Color(0xFF7B61FF).copy(alpha = 1f - waveProgress),
-                radius = maxRadius * waveProgress,
-                center = centerOffset,
-                style = Stroke(width = 2.dp.toPx())
-            )
+                drawCircle(
+                    color = Color(0xFF7B61FF).copy(alpha = 1f - waveProgress),
+                    radius = maxRadius * waveProgress,
+                    center = centerOffset,
+                    style = Stroke(width = 2.dp.toPx())
+                )
 
-            // Onda 2: Celeste
-            val delayedProgress = (waveProgress + 0.5f) % 1f
-            drawCircle(
-                color = Color(0xFF7ACAFF).copy(alpha = 1f - delayedProgress),
-                radius = maxRadius * delayedProgress,
-                center = centerOffset,
-                style = Stroke(width = 1.dp.toPx())
-            )
+                val delayedProgress = (waveProgress + 0.5f) % 1f
+                drawCircle(
+                    color = Color(0xFF7ACAFF).copy(alpha = 1f - delayedProgress),
+                    radius = maxRadius * delayedProgress,
+                    center = centerOffset,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
         }
 
         Column(
@@ -99,18 +94,49 @@ fun LoadingScreen(
                 text = "BURBUJA IA",
                 color = Color.White,
                 fontSize = 12.sp,
-                fontFamily = IBMPlexSans, // Usando tus fuentes
+                fontFamily = IBMPlexSans,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 4.sp
             )
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Analizando fragmentos de realidad...",
-                color = Color(0xFF7ACAFF),
-                fontSize = 14.sp,
-                fontFamily = Inter,
-                fontWeight = FontWeight.Light
-            )
+
+            // MANEJO VISUAL DE ESTADOS
+            when (currentState) {
+                is StoryState.Error -> {
+                    // SI HAY ERROR: Mostramos el mensaje en rojo y un botón
+                    Text(
+                        text = "Algo salió mal:\n${currentState.message}",
+                        color = Color(0xFFFF6B6B),
+                        fontSize = 14.sp,
+                        fontFamily = Inter,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { navController.popBackStack() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B6B))
+                    ) {
+                        Text("Volver a intentar", color = Color.White, fontFamily = Inter)
+                    }
+                }
+                else -> {
+                    // SI ESTÁ CARGANDO: Texto normal
+                    val mensajeCarga = if (currentState is StoryState.Loading) {
+                        "Sintetizando variables narrativas..."
+                    } else {
+                        "Analizando fragmentos de realidad..."
+                    }
+                    Text(
+                        text = mensajeCarga,
+                        color = Color(0xFF7ACAFF),
+                        fontSize = 14.sp,
+                        fontFamily = Inter,
+                        fontWeight = FontWeight.Light
+                    )
+                }
+            }
         }
     }
 }

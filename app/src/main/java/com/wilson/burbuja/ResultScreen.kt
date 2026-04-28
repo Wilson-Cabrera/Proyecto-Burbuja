@@ -38,7 +38,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun ResultScreen(
-    storyData: StoryData, // <--- Ahora lo toma de StoryData.kt
+    storyData: StoryData,
     nombreUsuario: String,
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit,
@@ -48,7 +48,7 @@ fun ResultScreen(
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    // Paleta oficial de Wilson
+    // Paleta Wilson
     val navyBg = Color(0xFF1F2A37)
     val celesteIA = Color(0xFF7BCBFF)
     val violetaRegenerativo = Color(0xFF6A5CFF)
@@ -67,8 +67,10 @@ fun ResultScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(navyBg)) {
 
-        // --- 1. FONDO AMBIENTAL ---
+        // --- 1. FONDO AMBIENTAL INTEGRADO ---
         Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
+
+            // Glow ambiental
             Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
                 drawCircle(
                     color = violetaRegenerativo.copy(alpha = 0.15f),
@@ -77,31 +79,39 @@ fun ResultScreen(
                 )
             }
 
+            // Imagen con altura extendida para fundido suave
             AsyncImage(
                 model = storyData.photoUri,
                 contentDescription = null,
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.65f),
+                modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.5f
+                alpha = 0.45f
             )
 
+            // Degradado Maestro Inferior
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.7f), navyBg),
-                        startY = 400f
+                        colors = listOf(
+                            Color.Transparent,
+                            navyBg.copy(alpha = 0.4f),
+                            navyBg.copy(alpha = 0.85f),
+                            navyBg
+                        ),
+                        startY = 0f,
+                        endY = 1600f
                     )
                 )
             )
 
-            // --- 2. CONTENIDO (Tags + Título + Historia) ---
+            // --- 2. CONTENIDO SCROLLABLE ---
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(horizontal = 28.dp)
             ) {
-                Spacer(modifier = Modifier.height(350.dp))
+                Spacer(modifier = Modifier.height(380.dp))
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -128,7 +138,7 @@ fun ResultScreen(
                     color = Color.White,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = InterFont // Asegurate que InterFont sea accesible
+                    fontFamily = Inter
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -139,14 +149,31 @@ fun ResultScreen(
                     fontSize = 17.sp,
                     lineHeight = 30.sp,
                     textAlign = TextAlign.Start,
-                    fontFamily = InterFont
+                    fontFamily = Inter
                 )
 
                 Spacer(modifier = Modifier.height(200.dp))
             }
         }
 
-        // --- 3. HEADER (BURBUJA AI) ---
+        // --- 3. TOP FADE OVERLAY (Blindado para la Status Bar) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp) // Un poco más de altura para un fundido elegante
+                .background(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to navyBg,          // Sólido absoluto en la barra de estado
+                            0.3f to navyBg,          // Sigue sólido hasta pasar el nombre de la app
+                            0.5f to navyBg.copy(alpha = 0.8f), // Comienza a fundirse
+                            1.0f to Color.Transparent // Desaparece para integrar el scroll
+                        )
+                    )
+                )
+        )
+
+        // --- 4. HEADER (Estático por encima del Top Fade) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -170,7 +197,7 @@ fun ResultScreen(
             )
         }
 
-        // --- 4. DOCK INFERIOR ---
+        // --- 5. DOCK INFERIOR ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -193,12 +220,11 @@ fun ResultScreen(
                 ) {
                     Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Guardar", fontWeight = FontWeight.Bold, fontFamily = InterFont)
+                    Text("Guardar", fontWeight = FontWeight.Bold, fontFamily = Inter)
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // BOTÓN REGENERAR
                 Button(
                     onClick = onGenerateAnother,
                     modifier = Modifier.weight(1.2f).height(56.dp),
@@ -208,14 +234,14 @@ fun ResultScreen(
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, tint = celesteIA, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold, fontFamily = InterFont)
+                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold, fontFamily = Inter)
                 }
 
                 Spacer(modifier = Modifier.width(64.dp))
             }
         }
 
-        // --- 5. PERFIL Y MENÚ ---
+        // --- 6. PERFIL ---
         Surface(
             modifier = Modifier.padding(bottom = 40.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp)
                 .clickable { isProfileMenuVisible = !isProfileMenuVisible },
