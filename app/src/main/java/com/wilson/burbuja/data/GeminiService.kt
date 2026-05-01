@@ -9,36 +9,34 @@ import com.wilson.burbuja.StoryData
 
 class GeminiService {
 
-    // 1. El "Master Prompt" como plantilla privada
+    // 1. El "Master Prompt" como plantilla privada actualizado
     private val MASTER_PROMPT = """
         # PERSONA Y ROL
-        Eres el "Arquitecto Narrativo de Burbuja AI", un experto en guion cinematográfico y literatura transmedia. Tu objetivo es transformar una captura visual y una serie de parámetros en una historia inmersiva de alta calidad.
+        Eres el "Arquitecto Narrativo de Burbuja AI". Tu objetivo es crear relatos inmersivos a partir de las fotografías que se capturan.
         
-        # REGLAS ESTRUCTURALES (PARADIGMA DE SYD FIELD)
-        Debes construir el relato siguiendo estrictamente la estructura de tres actos:
-        1. ACTO I (Planteamiento): Establece el mundo cotidiano acorde a [ÉPOCA] y [GÉNERO]. Introduce al [NARRADOR]. Integra el [DETONANTE] (el objeto/entorno escaneado) como el incidente incitador que rompe el equilibrio.
-        2. ACTO II (Confrontación): Desarrolla el conflicto central donde el [DETONANTE] es el eje motor de la acción. Eleva la tensión dramática aplicando el [TONO] solicitado.
-        3. ACTO III (Resolución): Dirige la historia hacia un Clímax donde el misterio o función del [DETONANTE] se resuelve, concluyendo con un desenlace coherente.
-        
-        # VARIABLES DINÁMICAS
-        - GÉNERO: [GÉNERO]
-        - NARRADOR: [NARRADOR]
-        - TONO: [TONO]
-        - ÉPOCA: [ÉPOCA]
-        - OBJETO/ENTORNO: [DETONANTE]
-        
-        # RESTRICCIONES Y ESTILO
-        - Fidelidad Temática: No permitas anacronismos (salvo que el género lo exija).
-        - Inmersión Sensorial: Describe olores, texturas y atmósferas basadas en el Entorno detectado en la imagen.
-        - Formato de Salida: Genera el texto de forma fluida. Empieza directamente con la narrativa.
-        - Longitud: 300-500 palabras.
+        # INSTRUCCIONES CRÍTICAS DE FORMATO
+        1. NO menciones explícitamente "Acto I", "Planteamiento" o etiquetas similares. La estructura debe ser fluida y natural.
+        2. Debes proponer un TÍTULO creativo para la historia.
+        3. Devuelve tu respuesta EXACTAMENTE con este formato, usando el símbolo "||" como separador:
+           TITULO: [Escribe aquí el título creativo]
+           ||
+           HISTORIA: [Escribe aquí el relato completo de 300-500 palabras]
+
+        # REGLAS ESTRUCTURALES Y VISUALES
+        - ANÁLISIS DE IMAGEN Y PROTAGONISMO: Analiza detalladamente la fotografía adjunta. El objeto escaneado o el paisaje capturado DEBE SER EL PROTAGONISTA absoluto de la historia (por ejemplo, si se escanea una llave, la llave es el personaje principal; si es un paisaje, el paisaje cobra vida y protagonismo).
+        - Inicio: Presenta a este protagonista visual en su mundo, adaptado a la [ÉPOCA]. Usa el [DETONANTE] como el evento que pone en marcha la trama.
+        - Nudo: Desarrolla el conflicto integrando elementos del entorno visible en la foto, aplicando el [TONO] y el [GÉNERO].
+        - Desenlace: Resolución coherente que cierre el arco del protagonista que se capturó en la imagen.
+
+        # VARIABLES
+        - GÉNERO: [GÉNERO] | NARRADOR: [NARRADOR] | TONO: [TONO] | ÉPOCA: [ÉPOCA] | DETONANTE: [DETONANTE]
     """.trimIndent()
 
     private val config = generationConfig {
         temperature = 0.8f
         topK = 40
         topP = 0.95f
-        maxOutputTokens = 2048
+        maxOutputTokens = 4096
     }
 
     private val generativeModel = GenerativeModel(
@@ -57,9 +55,8 @@ class GeminiService {
             .replace("[DETONANTE]", data.detonante)
     }
 
-    // 3. Función Multimodal: Recibe los datos y la imagen procesada
-    // Eliminamos el try-catch para que el ViewModel capture el error real
-    suspend fun generarCuentoMultimodal(data: StoryData, imagenBitmap: Bitmap): String? {
+    // 3. Función Multimodal: Ahora devuelve un Pair (Título, Historia)
+    suspend fun generarCuentoMultimodal(data: StoryData, imagenBitmap: Bitmap): Pair<String, String>? {
         val promptFinal = prepararPrompt(data)
 
         val inputContent = content {
@@ -68,6 +65,19 @@ class GeminiService {
         }
 
         val response = generativeModel.generateContent(inputContent)
-        return response.text
+        val respuestaCompleta = response.text ?: return null
+
+        // LÓGICA DE PULIDO:
+        // Si la IA nos mandó el separador "||", lo dividimos en Título y Cuento.
+        return if (respuestaCompleta.contains("||")) {
+            val partes = respuestaCompleta.split("||")
+            val tituloLimpio = partes[0].replace("TITULO:", "").trim()
+            val historiaLimpia = partes[1].replace("HISTORIA:", "").trim()
+
+            Pair(tituloLimpio, historiaLimpia)
+        } else {
+            // Backup por si la IA se olvida del formato ||
+            Pair("Una historia de Burbuja", respuestaCompleta.trim())
+        }
     }
 }

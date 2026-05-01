@@ -46,7 +46,13 @@ fun LoadingScreen(
         if (currentState is StoryState.Success) {
             val handleAnterior = navController.previousBackStackEntry?.savedStateHandle
             val storyData = handleAnterior?.get<StoryData>("storyData") ?: StoryData()
-            val mochilaActualizada = storyData.copy(resultStory = currentState.story)
+
+            // --- AQUÍ ESTÁ EL CAMBIO: Ahora guardamos la historia Y el título ---
+            val mochilaActualizada = storyData.copy(
+                resultStory = currentState.story,
+                title = currentState.title
+            )
+
             handleAnterior?.set("storyData", mochilaActualizada)
             onLoadingFinished()
         }
@@ -94,7 +100,7 @@ fun LoadingScreen(
                 text = "BURBUJA IA",
                 color = Color.White,
                 fontSize = 12.sp,
-                fontFamily = IBMPlexSans,
+                fontFamily = IBMPlexSans, // Asegúrate de tener tus fuentes importadas
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 4.sp
             )

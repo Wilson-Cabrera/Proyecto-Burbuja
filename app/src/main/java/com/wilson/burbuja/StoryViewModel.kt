@@ -35,11 +35,15 @@ class StoryViewModel : ViewModel() {
 
                 if (bitmap != null) {
                     // LLAMADA A GEMINI: Le pasamos los datos y la foto
-                    val cuentoGenerado = geminiService.generarCuentoMultimodal(data, bitmap)
+                    // AHORA ESTO DEVUELVE UN Pair<String, String>? (Título y Cuento)
+                    val resultado = geminiService.generarCuentoMultimodal(data, bitmap)
 
-                    // ÉXITO: Guardamos el cuento y el semáforo pasa a Verde (Success)
-                    if (cuentoGenerado != null) {
-                        uiState = StoryState.Success(cuentoGenerado)
+                    // ÉXITO: Guardamos el título y el cuento, y el semáforo pasa a Verde (Success)
+                    if (resultado != null) {
+                        uiState = StoryState.Success(
+                            title = resultado.first,   // Sacamos el título de la primera parte
+                            story = resultado.second   // Sacamos el cuento de la segunda parte
+                        )
                     } else {
                         uiState = StoryState.Error("Gemini no pudo crear el cuento.")
                     }

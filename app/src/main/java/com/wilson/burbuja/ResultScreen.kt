@@ -134,11 +134,17 @@ fun ResultScreen(
                 }
 
                 Text(
-                    text = "Fragmentos de Realidad",
+                    text = storyData.title.ifEmpty { "Fragmentos de Realidad" },
                     color = Color.White,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = Inter
+                    fontFamily = Inter,
+                    // --- LOS CAMBIOS ESTÁN AQUÍ ---
+                    lineHeight = 38.sp,       // Aumentamos la separación entre líneas
+                    letterSpacing = (-1).sp,  // Un toque de diseño: cerramos un poco el espacio entre letras para títulos grandes
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp) // Le damos aire respecto al cuento
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))

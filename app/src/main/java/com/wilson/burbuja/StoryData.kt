@@ -11,5 +11,6 @@ data class StoryData(
     val tono: String = "",
     val epoca: String = "",       // Reemplaza ambiente/contexto
     val detonante: String = "",   // El input: "El Detonante"
-    val resultStory: String = ""  // Aquí se guarda el cuento final
+    val resultStory: String = "", // Aquí se guarda el cuento final
+    val title: String = ""        // <--- NUEVO: El bolsillo para el título
 ) : Parcelable
