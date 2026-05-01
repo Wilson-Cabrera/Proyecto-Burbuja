@@ -1,5 +1,6 @@
 package com.wilson.burbuja
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Casino // Ícono del dado
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +21,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer // Necesario para la animación
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext // <-- NUEVO IMPORT
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.wilson.burbuja.data.DetonantesProvider
+import kotlinx.coroutines.launch // Necesario para disparar la animación
 
 // --- DEFINICIÓN DE FUENTES ---
 val IBMPlexSans = FontFamily(
@@ -51,11 +56,11 @@ val Inter = FontFamily(
 fun StoryConfigurationScreen(
     navController: NavController,
     photoUri: String,
-    viewModel: StoryViewModel, // <--- NUEVO: Recibimos el ViewModel ("el cerebro")
+    viewModel: StoryViewModel,
     onBackClick: () -> Unit = {}
 ) {
-    // NUEVO: Obtenemos el contexto de Android, necesario para procesar la imagen
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope() // Scope para la animación
 
     // 1. ESTADOS DE SELECCIÓN
     var generoSel by remember { mutableStateOf("Misterio") }
@@ -63,6 +68,18 @@ fun StoryConfigurationScreen(
     var tonoSel by remember { mutableStateOf("Épico") }
     var epocaSel by remember { mutableStateOf("Actual") }
     var detonanteSel by remember { mutableStateOf("") }
+
+    // --- ESTADOS DE ANIMACIÓN DEL DADO ---
+    val rotation = remember { Animatable(0f) }
+    var isScaled by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isScaled) 1.2f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale_anim"
+    )
 
     val scrollState = rememberScrollState()
 
@@ -172,7 +189,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // --- SECCIÓN 5: EL DETONANTE (INPUT) ---
+                // --- SECCIÓN 5: EL DETONANTE (INPUT ANIMADO) ---
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(text = "El Detonante", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
                     HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = Color(0xFF74A9D2).copy(alpha = 0.5f))
@@ -197,6 +214,36 @@ fun StoryConfigurationScreen(
                             }
                         }
                     },
+                    // --- BOTÓN DEL DADO ANIMADO ---
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                // 1. Cambiamos el texto
+                                detonanteSel = DetonantesProvider.obtenerAleatorio()
+
+                                // 2. Lanzamos la animación
+                                coroutineScope.launch {
+                                    isScaled = true // Inicia el "pop"
+                                    rotation.animateTo(
+                                        targetValue = rotation.value + 360f, // Gira 360 grados adicionales
+                                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                    )
+                                    isScaled = false // Vuelve a su tamaño original
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Casino,
+                                contentDescription = "Generar azar",
+                                tint = Color(0xFF7ACAFF),
+                                modifier = Modifier.graphicsLayer {
+                                    rotationZ = rotation.value
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                            )
+                        }
+                    },
                     shape = RoundedCornerShape(30.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -210,7 +257,7 @@ fun StoryConfigurationScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // --- MODIFICACIÓN EN EL BOTÓN GENERAR ---
+                // --- BOTÓN GENERAR ---
                 Button(
                     onClick = {
                         val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
@@ -224,13 +271,8 @@ fun StoryConfigurationScreen(
                             detonante = detonanteSel
                         )
 
-                        // 1. Opcional: Seguimos guardando el dato en la pila de navegación por si otra pantalla lo necesita
                         navController.currentBackStackEntry?.savedStateHandle?.set("storyData", dataParaIA)
-
-                        // 2. NUEVO: Le damos la orden al ViewModel para que empiece a procesar en segundo plano
                         viewModel.generarHistoria(context, dataParaIA)
-
-                        // 3. Navegamos a la pantalla de carga (que ahora solo tendrá que mirar el estado del ViewModel)
                         navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
