@@ -5,7 +5,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +20,8 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,11 +39,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import kotlin.math.pow
+import kotlin.math.sin
 
 @Composable
 fun ResultScreen(
     storyData: StoryData,
     nombreUsuario: String,
+    isAudioLoading: Boolean,
+    isPlaying: Boolean,
+    audioAmplitude: Float,
+    onPlayAudioClick: () -> Unit,
+    onStopAudioClick: () -> Unit,
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit,
     onLogout: () -> Unit
@@ -48,15 +59,13 @@ fun ResultScreen(
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    // Paleta Wilson
-    val navyBg = Color(0xFF1F2A37)
+    val navyBg = Color(0xFF101820)
     val celesteIA = Color(0xFF7BCBFF)
     val violetaRegenerativo = Color(0xFF6A5CFF)
 
     val cuentoCompleto = storyData.resultStory.ifEmpty { "Generando relato..." }
     var textoMostrado by remember { mutableStateOf("") }
 
-    // Animación de escritura
     LaunchedEffect(cuentoCompleto) {
         textoMostrado = ""
         cuentoCompleto.forEachIndexed { index, _ ->
@@ -67,233 +76,239 @@ fun ResultScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(navyBg)) {
 
-        // --- 1. FONDO AMBIENTAL INTEGRADO ---
+        // --- 1. FONDO E IMAGEN ---
         Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
 
-            // Glow ambiental
-            Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
-                drawCircle(
-                    color = violetaRegenerativo.copy(alpha = 0.15f),
-                    radius = size.minDimension / 1.2f,
-                    center = Offset(size.width * 0.9f, size.height * 0.3f)
-                )
-            }
-
-            // Imagen con altura extendida para fundido suave
             AsyncImage(
                 model = storyData.photoUri,
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.45f
+                alpha = 0.25f
             )
 
-            // Degradado Maestro Inferior
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            navyBg.copy(alpha = 0.4f),
-                            navyBg.copy(alpha = 0.85f),
-                            navyBg
-                        ),
-                        startY = 0f,
-                        endY = 1600f
+                        colors = listOf(navyBg, navyBg.copy(alpha = 0.6f), navyBg),
+                        startY = 0f, endY = 1800f
                     )
                 )
             )
 
             // --- 2. CONTENIDO SCROLLABLE ---
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 28.dp)
+                modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 28.dp)
             ) {
-                Spacer(modifier = Modifier.height(380.dp))
+                Spacer(modifier = Modifier.height(350.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
                     listOf(storyData.genero, storyData.tono, storyData.epoca).forEach { tag ->
-                        Surface(
-                            color = violetaRegenerativo.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(0.5.dp, violetaRegenerativo.copy(alpha = 0.4f))
-                        ) {
-                            Text(
-                                text = tag.uppercase(),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                fontSize = 10.sp, color = celesteIA, fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
+                        Surface(color = violetaRegenerativo.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp), border = BorderStroke(0.5.dp, violetaRegenerativo.copy(alpha = 0.3f))) {
+                            Text(text = tag.uppercase(), modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), fontSize = 10.sp, color = celesteIA, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         }
                     }
                 }
 
                 Text(
                     text = storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                    color = Color.White,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = Inter,
-                    // --- LOS CAMBIOS ESTÁN AQUÍ ---
-                    lineHeight = 38.sp,       // Aumentamos la separación entre líneas
-                    letterSpacing = (-1).sp,  // Un toque de diseño: cerramos un poco el espacio entre letras para títulos grandes
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp) // Le damos aire respecto al cuento
+                    color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp, letterSpacing = (-1).sp,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = textoMostrado,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 17.sp,
-                    lineHeight = 30.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Inter
-                )
-
-                Spacer(modifier = Modifier.height(200.dp))
+                Text(text = textoMostrado, color = Color.White.copy(alpha = 0.9f), fontSize = 17.sp, lineHeight = 30.sp, textAlign = TextAlign.Start)
+                Spacer(modifier = Modifier.height(180.dp))
             }
         }
 
-        // --- 3. TOP FADE OVERLAY (Blindado para la Status Bar) ---
+        // --- 3. DOCK INFERIOR ---
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(150.dp) // Un poco más de altura para un fundido elegante
-                .background(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to navyBg,          // Sólido absoluto en la barra de estado
-                            0.3f to navyBg,          // Sigue sólido hasta pasar el nombre de la app
-                            0.5f to navyBg.copy(alpha = 0.8f), // Comienza a fundirse
-                            1.0f to Color.Transparent // Desaparece para integrar el scroll
-                        )
-                    )
-                )
-        )
-
-        // --- 4. HEADER (Estático por encima del Top Fade) ---
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterStart).background(Color.Black.copy(alpha = 0.3f), CircleShape)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
-            }
-
-            Text(
-                text = "BURBUJA AI",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                letterSpacing = 3.sp,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-
-        // --- 5. DOCK INFERIOR ---
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .align(Alignment.BottomCenter)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.95f), navyBg)
-                    )
-                )
-                .padding(horizontal = 24.dp).padding(bottom = 40.dp),
+            modifier = Modifier.fillMaxWidth().height(160.dp).align(Alignment.BottomCenter)
+                .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.95f), navyBg)))
+                .padding(horizontal = 24.dp).padding(bottom = 30.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = { /* Lógica Guardar */ },
-                    modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = celesteIA, contentColor = navyBg)
-                ) {
+                Button(onClick = { /* Guardar */ }, modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)), shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = celesteIA, contentColor = navyBg)) {
                     Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Guardar", fontWeight = FontWeight.Bold, fontFamily = Inter)
+                    Text("Guardar", fontWeight = FontWeight.Bold)
                 }
-
                 Spacer(modifier = Modifier.width(12.dp))
-
-                Button(
-                    onClick = onGenerateAnother,
-                    modifier = Modifier.weight(1.2f).height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                    border = BorderStroke(1.dp, celesteIA.copy(alpha = 0.4f))
-                ) {
+                Button(onClick = onGenerateAnother, modifier = Modifier.weight(1.2f).height(56.dp), shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f)), border = BorderStroke(1.dp, celesteIA.copy(alpha = 0.4f))) {
                     Icon(Icons.Default.AutoAwesome, null, tint = celesteIA, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold, fontFamily = Inter)
+                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold)
                 }
-
                 Spacer(modifier = Modifier.width(64.dp))
             }
         }
 
-        // --- 6. PERFIL ---
-        Surface(
-            modifier = Modifier.padding(bottom = 40.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp)
-                .clickable { isProfileMenuVisible = !isProfileMenuVisible },
-            shape = CircleShape,
-            color = violetaRegenerativo,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Surface(modifier = Modifier.padding(bottom = 30.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp).clickable { isProfileMenuVisible = !isProfileMenuVisible }, shape = CircleShape, color = violetaRegenerativo, border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) { Box(contentAlignment = Alignment.Center) { Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp) } }
+
+        // --- 4. REPRODUCTOR: CÚPULA PULIDA ---
+        Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
+            UniverseDomeVisualizer(
+                isPlaying = isPlaying,
+                isLoading = isAudioLoading,
+                amplitude = audioAmplitude,
+                onBackClick = onBackClick,
+                onClick = { if (!isAudioLoading) { if (isPlaying) onStopAudioClick() else onPlayAudioClick() } }
+            )
+        }
+
+        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) { Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false }) }
+        AnimatedVisibility(visible = isProfileMenuVisible, enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(), exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(), modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)) { ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = onLogout) }
+    }
+}
+
+// --- EL REPRODUCTOR "CÚPULA DE SONIDO" ---
+@Composable
+fun UniverseDomeVisualizer(
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    amplitude: Float,
+    onBackClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    val celesteIA = Color(0xFF7BCBFF)
+    val navyBg = Color(0xFF101820)
+
+    val smoothAmplitude by animateFloatAsState(
+        targetValue = if (isPlaying) amplitude else 0f,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "amplitude"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "universe_time")
+    val time by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1000f,
+        animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Restart),
+        label = "time"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(280.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(navyBg, navyBg.copy(alpha = 0.8f), Color.Transparent)
+                )
+            )
+    ) {
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            // 1. LA CÚPULA DE LUZ (Ahora más sutil y misteriosa)
+            val domeCenter = Offset(w / 2f, 0f)
+
+            val baseRadius = w * 0.45f
+            val expandedRadius = baseRadius + (w * 0.4f * smoothAmplitude)
+
+            // REDUCIDO: La opacidad base y la fuerza de la luz al hablar ahora son mucho menores
+            val domeAlpha = 0.05f + (0.18f * smoothAmplitude)
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(celesteIA.copy(alpha = domeAlpha), Color.Transparent),
+                    center = domeCenter,
+                    radius = expandedRadius
+                ),
+                radius = expandedRadius,
+                center = domeCenter
+            )
+
+            // 2. LA MATRIZ DE PUNTOS (Con difuminado en la base)
+            val spacing = 65f
+
+            val startX = (w % spacing) / 2f
+            val startY = (h % spacing) / 2f
+
+            var currentX = startX
+            while (currentX <= w) {
+                var currentY = startY
+                while (currentY <= h) {
+
+                    val wave = sin(time * 1.5f + (currentX * 0.005f) + (currentY * 0.005f))
+                    val pulse = (wave + 1f) / 2f
+
+                    // EFECTO DE FADE-OUT (Difuminación en Y)
+                    // Calcula qué tan abajo está el punto (de 1.0 arriba a 0.0 abajo)
+                    val yProgress = 1f - (currentY / h)
+                    // Aplicamos una curva para que el desvanecimiento sea orgánico y suave al final
+                    val fadeMultiplier = (yProgress * 1.5f).coerceIn(0f, 1f).pow(1.5f)
+
+                    val baseAlpha = 0.08f
+                    val activeAlpha = (0.4f * smoothAmplitude * pulse)
+
+                    // Multiplicamos la opacidad total por el efecto de fade inferior
+                    val finalAlpha = (baseAlpha + activeAlpha) * fadeMultiplier
+
+                    // Solo dibujamos el punto si tiene algo de opacidad para ahorrar rendimiento
+                    if (finalAlpha > 0.01f) {
+                        drawCircle(
+                            color = Color.White.copy(alpha = finalAlpha),
+                            radius = 2f,
+                            center = Offset(currentX, currentY)
+                        )
+                    }
+
+                    currentY += spacing
+                }
+                currentX += spacing
             }
         }
 
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false })
+        // --- UI DEL REPRODUCTOR ---
+
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(start = 16.dp, top = 16.dp)
+                .size(44.dp)
+                .background(Color(0xFF101820).copy(alpha = 0.5f), CircleShape)
+                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
         }
 
-        AnimatedVisibility(
-            visible = isProfileMenuVisible,
-            enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
-            modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 24.dp)
+                .size(52.dp)
+                // Reduje un poco la sombra del botón para que acompañe la nueva luz sutil
+                .shadow(if (isPlaying) 12.dp else 0.dp, CircleShape, ambientColor = celesteIA, spotColor = celesteIA)
+                .background(Color(0xFF0A0F14), CircleShape)
+                .border(1.dp, celesteIA.copy(alpha = 0.6f), CircleShape)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            contentAlignment = Alignment.Center
         ) {
-            ProfileMenuCard(
-                nombreUsuario = nombreUsuario,
-                onClose = { isProfileMenuVisible = false },
-                onLogout = onLogout
-            )
+            if (isLoading) {
+                CircularProgressIndicator(color = celesteIA, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            } else if (!isPlaying) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(26.dp))
+            } else {
+                Icon(Icons.Default.Pause, contentDescription = "Pause", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(26.dp))
+            }
         }
     }
 }
 
-// --- SUBCOMPONENTES ---
-
+// --- SUBCOMPONENTES (Perfil) ---
 @Composable
 fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
-    Card(
-        modifier = Modifier.width(260.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
-    ) {
+    Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Hola, $nombreUsuario", color = Color(0xFF64748B), fontSize = 14.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
-                }
+                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.Close, null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp)) }
             }
             Spacer(modifier = Modifier.height(16.dp))
             ProfileMenuItem(Icons.Default.NightsStay, "Modo oscuro") {}
@@ -306,10 +321,7 @@ fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> 
 
 @Composable
 fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp)
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp)) {
         Icon(icon, null, tint = Color(0xFF1E293B), modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(text = text, color = Color(0xFF1E293B), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
