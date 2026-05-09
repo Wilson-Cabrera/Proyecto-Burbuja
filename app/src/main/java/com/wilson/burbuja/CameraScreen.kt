@@ -105,7 +105,6 @@ fun CameraScreen(
     ) { uri ->
         uri?.let {
             val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
-            // CORREGIDO: preview -> preview_screen
             navController.navigate("preview_screen/$encodedUri")
         }
     }
@@ -166,8 +165,9 @@ fun CameraScreen(
                 .then(if (girandoCamara) Modifier.blur(15.dp) else Modifier)
         )
 
+        // Sombreado perimetral para mejorar contraste de los controles
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f))))
+            drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f))))
         }
 
         focusPoint?.let { FocusRing(it) { focusPoint = null } }
@@ -179,13 +179,14 @@ fun CameraScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 180.dp)
         ) {
             Surface(
-                color = Color.Black.copy(alpha = 0.75f),
+                // DINÁMICO: Etiqueta de zoom
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFF7ACAFF).copy(alpha = 0.6f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
             ) {
                 Text(
                     text = "ZOOM ${"%.1f".format(zoomLevel)}x",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -207,7 +208,6 @@ fun CameraScreen(
                         triggerScanner = true; delay(700); procesandoCaptura = true
                         tomarFotoTemporal(context, imageCapture) { uri ->
                             val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
-                            // CORREGIDO: preview -> preview_screen
                             navController.navigate("preview_screen/$encodedUri")
                             procesandoCaptura = false
                         }
@@ -227,49 +227,79 @@ fun CameraScreen(
         VisorMinimalistaOverlay()
         EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
+        // Flash de pantalla al tomar la foto
         AnimatedVisibility(visible = procesandoCaptura, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.2f)))
+            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.8f)))
         }
     }
 }
 
 @Composable
 fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
+    // DINÁMICO: Barra superior
+    val bgColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val contentColor = MaterialTheme.colorScheme.onSurface
+
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 40.dp, start = 16.dp, end = 16.dp)
-            .clip(RoundedCornerShape(24.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.85f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)).padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(bgColor)
+            .border(0.5.dp, contentColor.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+            .padding(vertical = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
-            IconButton(onClick = onBackClicked) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
+            IconButton(onClick = onBackClicked) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = contentColor) }
             Spacer(modifier = Modifier.weight(1f))
-            Text(text = if (triggerScanner) "ANALIZANDO..." else fraseNarrativa.uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            Text(
+                text = if (triggerScanner) "ANALIZANDO..." else fraseNarrativa.uppercase(),
+                color = contentColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onFlashToggle) {
                 val icon = if (flashMode == ImageCapture.FLASH_MODE_ON) Icons.Default.FlashOn else Icons.Default.FlashOff
-                Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(icon, null, tint = contentColor, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
-
-
-//controles de la camara capsulaaaaaa
 @Composable
 fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit, onSwitchCameraClick: () -> Unit) {
+    // DINÁMICO: Controles inferiores
+    val surfaceGlass = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Box(
         modifier = Modifier.fillMaxWidth().padding(bottom = 40.dp, start = 24.dp, end = 24.dp)
-            .clip(RoundedCornerShape(32.dp)).background(Color(0xFF1F2A37).copy(alpha = 0.0f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.0f), RoundedCornerShape(32.dp)).padding(vertical = 20.dp, horizontal = 24.dp)
+            .padding(vertical = 20.dp, horizontal = 24.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape).clickable { onGalleryClick() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PhotoLibrary, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            // Botón Galería
+            Box(
+                modifier = Modifier.size(46.dp).clip(CircleShape).background(surfaceGlass)
+                    .border(1.dp, contentColor.copy(alpha = 0.15f), CircleShape).clickable { onGalleryClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.PhotoLibrary, null, tint = contentColor, modifier = Modifier.size(20.dp))
             }
-            Box(modifier = Modifier.size(72.dp).border(3.dp, Color.White, CircleShape).padding(6.dp).clip(CircleShape).background(Color(0xFFD25450)).clickable { onCaptureClick() })
-            Box(modifier = Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)).border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape).clickable { onSwitchCameraClick() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Cached, null, tint = Color.White)
+
+            // Botón Captura Principal (Lo pasamos a color Primario en vez de Rojo para mantener la identidad)
+            Box(
+                modifier = Modifier.size(72.dp).border(3.dp, contentColor, CircleShape)
+                    .padding(6.dp).clip(CircleShape).background(primaryColor).clickable { onCaptureClick() }
+            )
+
+            // Botón Girar Cámara
+            Box(
+                modifier = Modifier.size(46.dp).clip(CircleShape).background(surfaceGlass)
+                    .border(1.dp, contentColor.copy(alpha = 0.15f), CircleShape).clickable { onSwitchCameraClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Cached, null, tint = contentColor)
             }
         }
     }
@@ -277,7 +307,8 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
 
 @Composable
 fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
-    val colorScanner = Color(0xFF7ACAFF)
+    // DINÁMICO: El láser del escáner ahora usa tu color primario
+    val colorScanner = MaterialTheme.colorScheme.primary
     val scanProgress = remember { Animatable(0f) }
     val alphaEfecto = remember { Animatable(0f) }
     val particulas = remember { List(40) { ParticulaScanner(Random.nextFloat(), Random.nextFloat() * 0.14f - 0.07f, Random.nextFloat() * 2f + 1f, Random.nextFloat() * 0.5f + 0.2f, Random.nextFloat() * 15f - 7.5f) } }
@@ -306,16 +337,22 @@ fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
 
 @Composable
 fun FocusRing(offset: Offset, onFinished: () -> Unit) {
+    // DINÁMICO: El anillo de enfoque
+    val colorAnillo = MaterialTheme.colorScheme.primary
     val scale = remember { Animatable(1.5f) }
     val alpha = remember { Animatable(1f) }
     LaunchedEffect(Unit) { scale.animateTo(1f, tween(300)); delay(600); alpha.animateTo(0f, tween(300)); onFinished() }
-    Canvas(modifier = Modifier.fillMaxSize()) { drawCircle(Color(0xFF7ACAFF), 40.dp.toPx() * scale.value, offset, style = Stroke(2.dp.toPx()), alpha = alpha.value) }
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        drawCircle(colorAnillo, 40.dp.toPx() * scale.value, offset, style = Stroke(2.dp.toPx()), alpha = alpha.value)
+    }
 }
 
 @Composable
 fun VisorMinimalistaOverlay() {
+    // DINÁMICO: Las esquinas del visor usan el color de texto/íconos para asegurar contraste
+    val colorVisor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val colorVisor = Color.White.copy(alpha = 0.3f); val pad = 70.dp.toPx()
+        val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val pad = 70.dp.toPx()
         drawArc(colorVisor, 180f, 90f, false, Offset(pad, pad + 100.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
         drawArc(colorVisor, 270f, 90f, false, Offset(w - pad - arcSize, pad + 100.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
         drawArc(colorVisor, 90f, 90f, false, Offset(pad, h - pad - arcSize - 150.dp.toPx()), Size(arcSize, arcSize), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))

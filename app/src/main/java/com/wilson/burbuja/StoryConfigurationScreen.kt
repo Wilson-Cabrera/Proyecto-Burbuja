@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Casino // Ícono del dado
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +21,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer // Necesario para la animación
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.wilson.burbuja.data.DetonantesProvider
-import kotlinx.coroutines.launch // Necesario para disparar la animación
+import kotlinx.coroutines.launch
 
 // --- DEFINICIÓN DE FUENTES ---
 val IBMPlexSans = FontFamily(
@@ -60,7 +60,7 @@ fun StoryConfigurationScreen(
     onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope() // Scope para la animación
+    val coroutineScope = rememberCoroutineScope()
 
     // 1. ESTADOS DE SELECCIÓN
     var generoSel by remember { mutableStateOf("Misterio") }
@@ -83,6 +83,12 @@ fun StoryConfigurationScreen(
 
     val scrollState = rememberScrollState()
 
+    // DINÁMICO: Variables del tema para esta pantalla
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+
     Box(modifier = Modifier.fillMaxSize()) {
         // FONDO MULTIMEDIA
         AsyncImage(
@@ -92,8 +98,8 @@ fun StoryConfigurationScreen(
             contentScale = ContentScale.Crop
         )
 
-        // OVERLAY DARK
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.85f)))
+        // DINÁMICO: OVERLAY. Oscuro en Dark Mode, Claro en Light Mode.
+        Box(modifier = Modifier.fillMaxSize().background(bgColor.copy(alpha = 0.85f)))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -117,7 +123,7 @@ fun StoryConfigurationScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Volver",
-                        tint = Color.White,
+                        tint = textColor, // DINÁMICO
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -127,7 +133,7 @@ fun StoryConfigurationScreen(
                 // TÍTULOS
                 Text(
                     text = "Dale forma a tu cuento",
-                    color = Color.White,
+                    color = textColor, // DINÁMICO
                     fontSize = 20.sp,
                     fontFamily = IBMPlexSans,
                     fontWeight = FontWeight.Bold,
@@ -137,7 +143,7 @@ fun StoryConfigurationScreen(
 
                 Text(
                     text = "Elegí como querés que sea",
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = textColor.copy(alpha = 0.6f), // DINÁMICO
                     fontSize = 13.sp,
                     fontFamily = Inter,
                     fontWeight = FontWeight.Light,
@@ -154,7 +160,8 @@ fun StoryConfigurationScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .shadow(15.dp, RoundedCornerShape(28.dp))
+                        // DINÁMICO: Sombra con el color primario
+                        .shadow(15.dp, RoundedCornerShape(28.dp), spotColor = primaryColor)
                         .clip(RoundedCornerShape(28.dp)),
                     contentScale = ContentScale.Crop
                 )
@@ -191,8 +198,8 @@ fun StoryConfigurationScreen(
 
                 // --- SECCIÓN 5: EL DETONANTE (INPUT ANIMADO) ---
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "El Detonante", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = Color(0xFF74A9D2).copy(alpha = 0.5f))
+                    Text(text = "El Detonante", color = textColor, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold) // DINÁMICO
+                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = primaryColor.copy(alpha = 0.5f)) // DINÁMICO
                 }
 
                 OutlinedTextField(
@@ -202,15 +209,16 @@ fun StoryConfigurationScreen(
                     placeholder = {
                         Text(
                             text = "Ej:\"Un portal se abre...\", \"Una sombra aparece...\"",
-                            color = Color.White.copy(alpha = 0.4f),
+                            color = textColor.copy(alpha = 0.4f), // DINÁMICO
                             fontSize = 12.sp,
                             fontFamily = Inter
                         )
                     },
                     leadingIcon = {
-                        Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = Color(0xFF7B61FF)) {
+                        // DINÁMICO: Círculo del ícono de agregar usa el color secundario
+                        Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = secondaryColor) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(18.dp))
                             }
                         }
                     },
@@ -218,24 +226,21 @@ fun StoryConfigurationScreen(
                     trailingIcon = {
                         IconButton(
                             onClick = {
-                                // 1. Cambiamos el texto
                                 detonanteSel = DetonantesProvider.obtenerAleatorio()
-
-                                // 2. Lanzamos la animación
                                 coroutineScope.launch {
-                                    isScaled = true // Inicia el "pop"
+                                    isScaled = true
                                     rotation.animateTo(
-                                        targetValue = rotation.value + 360f, // Gira 360 grados adicionales
+                                        targetValue = rotation.value + 360f,
                                         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
                                     )
-                                    isScaled = false // Vuelve a su tamaño original
+                                    isScaled = false
                                 }
                             }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Casino,
                                 contentDescription = "Generar azar",
-                                tint = Color(0xFF7ACAFF),
+                                tint = primaryColor, // DINÁMICO
                                 modifier = Modifier.graphicsLayer {
                                     rotationZ = rotation.value
                                     scaleX = scale
@@ -245,13 +250,14 @@ fun StoryConfigurationScreen(
                         }
                     },
                     shape = RoundedCornerShape(30.dp),
+                    // DINÁMICO: Colores del TextField atados al tema
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color(0xFF7B61FF),
-                        focusedBorderColor = Color(0xFF74A9D2),
-                        unfocusedBorderColor = Color(0xFF74A9D2).copy(alpha = 0.8f),
-                        focusedContainerColor = Color(0xFF74A9D2).copy(alpha = 0.1f)
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor,
+                        cursorColor = secondaryColor,
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                        focusedContainerColor = primaryColor.copy(alpha = 0.05f)
                     )
                 )
 
@@ -280,14 +286,15 @@ fun StoryConfigurationScreen(
                         .height(60.dp)
                         .shadow(12.dp, RoundedCornerShape(30.dp)),
                     shape = RoundedCornerShape(30.dp),
+                    // DINÁMICO: Usamos el primario para el botón
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF74A9D2),
-                        contentColor = Color.White
+                        containerColor = primaryColor,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White)
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "Generar", fontSize = 18.sp, fontFamily = Inter, fontWeight = FontWeight.Bold, color = Color(0xFFffffff))
+                    Text(text = "Generar", fontSize = 18.sp, fontFamily = Inter, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                 }
 
                 Spacer(modifier = Modifier.height(60.dp))
@@ -303,7 +310,7 @@ fun CategoryHeader(title: String) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title.uppercase(),
-            color = Color(0xFFffffff),
+            color = MaterialTheme.colorScheme.onBackground, // DINÁMICO
             fontSize = 11.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 1.5.sp,
@@ -312,23 +319,28 @@ fun CategoryHeader(title: String) {
         HorizontalDivider(
             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             thickness = 0.9.dp,
-            color = Color(0xFF7ACAFF).copy(alpha = 0.9f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) // DINÁMICO
         )
     }
 }
 
 @Composable
 fun BurbujaChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    // DINÁMICO: Lógica de colores según el estado de selección y el tema
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+    val borderColor = if (isSelected) null else BorderStroke(0.9.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface
+
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) Color(0xFF7B61FF) else Color(0xFF1F2A37).copy(0.5f),
-        border = if (isSelected) null else BorderStroke(0.9.dp, Color(0xFF74A9D2).copy(0.9f)),
+        color = bgColor,
+        border = borderColor,
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         Text(
             text = text,
-            color = if (isSelected) Color.White else Color.White.copy(0.8f),
+            color = textColor,
             fontSize = 13.sp,
             fontFamily = Inter,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)

@@ -5,9 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource // <--- Importante para el ícono
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -30,7 +28,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.*
 
@@ -39,7 +36,7 @@ val InterFont = FontFamily(
     Font(R.font.inter_variable, FontWeight.Normal),
     Font(R.font.inter_variable, FontWeight.Thin),
     Font(R.font.inter_variable, FontWeight.Black),
-    Font(R.font.inter_variable, FontWeight(950)) // Ultra Black
+    Font(R.font.inter_variable, FontWeight(950))
 )
 
 @Composable
@@ -80,9 +77,6 @@ fun LoginScreen(
         } catch (e: ApiException) { isLoading = false }
     }
 
-    // --- IDENTIDAD VISUAL ---
-    val navyBg = Color(0xFF1F2A37)
-    val celesteIA = Color(0xFF7BCBFF)
     var touchPos by remember { mutableStateOf(Offset(-500f, -500f)) }
     var isTouching by remember { mutableStateOf(false) }
 
@@ -94,7 +88,8 @@ fun LoginScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = navyBg
+        // DINÁMICO: El fondo cambia de Navy profundo a Blanco Técnico automáticamente
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = Modifier
@@ -110,7 +105,8 @@ fun LoginScreen(
                     }
                 }
         ) {
-            CampoDeEnfoque(celesteIA, touchPos, isTouching, pulse)
+            // DINÁMICO: Le pasamos el color primario (Cyan o Violeta) al Canvas
+            CampoDeEnfoque(color = MaterialTheme.colorScheme.primary, touchPos = touchPos, isTouching = isTouching, pulse = pulse)
 
             Column(
                 modifier = Modifier
@@ -123,7 +119,8 @@ fun LoginScreen(
 
                 Text(
                     text = "BIENVENIDO",
-                    color = Color.White,
+                    // DINÁMICO: Texto que contrasta con el fondo (Blanco en dark, Navy en light)
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 38.sp,
                     fontWeight = FontWeight(950),
                     letterSpacing = (-1.5).sp,
@@ -134,7 +131,8 @@ fun LoginScreen(
 
                 Text(
                     text = "Lo que ves puede ser una historia",
-                    color = Color.White.copy(alpha = 0.7f),
+                    // DINÁMICO: Mismo texto, pero con opacidad
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Thin,
@@ -144,9 +142,10 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (isLoading) {
-                    CircularProgressIndicator(color = celesteIA, modifier = Modifier.padding(bottom = 32.dp))
+                    // DINÁMICO: Color primario para el loader
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 32.dp))
                 } else {
-                    // BOTÓN GOOGLE CON ÍCONO
+                    // BOTÓN GOOGLE
                     Button(
                         onClick = {
                             isLoading = true
@@ -154,7 +153,8 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        // DINÁMICO: Usamos el color Surface (Gris oscuro en dark, Gris clarito en light)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         Row(
@@ -165,13 +165,14 @@ fun LoginScreen(
                                 painter = painterResource(id = R.drawable.ic_google),
                                 contentDescription = "Google Logo",
                                 modifier = Modifier.size(20.dp),
-                                // ESTA es la mejor práctica:
-                                tint = Color(0xFF1F2A37)
+                                // DINÁMICO: Color de texto/icono sobre la superficie
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Entrar con Google",
-                                color = navyBg,
+                                // DINÁMICO: Color de texto/icono sobre la superficie
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 fontFamily = InterFont
@@ -192,11 +193,13 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
-                        border = BorderStroke(2.dp, celesteIA)
+                        // DINÁMICO: Borde con el color primario actual
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Text(
                             text = "Crear mi historia",
-                            color = Color.White,
+                            // DINÁMICO: Texto adaptado al fondo
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = InterFont
                         )

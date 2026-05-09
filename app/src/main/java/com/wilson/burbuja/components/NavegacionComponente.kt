@@ -38,19 +38,20 @@ fun NavegacionLiteral(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // BARRA DE NAVEGACIÓN (Ahora con 2 ítems)
+        // BARRA DE NAVEGACIÓN
         Surface(
             modifier = Modifier
                 .weight(1f)
                 .height(56.dp),
             shape = RoundedCornerShape(32.dp),
-            color = Color(0xFF6E88A6).copy(alpha = 0.9f),
-            shadowElevation = 0.dp
+            // DINÁMICO: Usamos Surface (Gris oscuro en Dark, Gris claro en Light)
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            shadowElevation = 4.dp // Un toque de sombra para que flote
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly // Distribuye los 2 iconos perfecto
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ItemNavegacionLiteral(
                     icon = Icons.Default.Home,
@@ -70,19 +71,21 @@ fun NavegacionLiteral(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // CÍRCULO DE PERFIL (Mantenemos tu diseño original)
+        // CÍRCULO DE PERFIL
         Surface(
             modifier = Modifier
                 .size(56.dp)
                 .clickable { onProfileClick() },
             shape = CircleShape,
-            color = Color(0xFF6E88A6),
+            // DINÁMICO: Misma superficie que la barra para mantener coherencia
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = letraUsuario.uppercase(),
-                    color = Color.White,
+                    // DINÁMICO: Usamos el primario (Cyan/Violeta) para que la letra resalte
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -93,13 +96,19 @@ fun NavegacionLiteral(
 
 @Composable
 fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
+    // DINÁMICO: Si está seleccionado usamos el Primario. Si no, usamos el color de texto con opacidad.
+    val colorContenido = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    }
 
     val modifierSeleccionado = if (selected) {
         Modifier
             .clip(CircleShape)
-            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))
-            .padding(horizontal = 20.dp, vertical = 12.dp) // Un poco más de aire al ser solo 2
+            // DINÁMICO: Fondo del botón activo usando el primario con mucha transparencia
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+            .padding(horizontal = 20.dp, vertical = 12.dp)
     } else {
         Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
     }
@@ -122,7 +131,7 @@ fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, o
             Text(
                 text = label,
                 color = colorContenido,
-                fontSize = 14.sp, // Aumenté un toque el tamaño para que llene mejor
+                fontSize = 14.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1
             )

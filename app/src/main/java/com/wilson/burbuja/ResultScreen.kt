@@ -15,14 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,9 +55,11 @@ fun ResultScreen(
     var isProfileMenuVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    val navyBg = Color(0xFF101820)
-    val celesteIA = Color(0xFF7BCBFF)
-    val violetaRegenerativo = Color(0xFF6A5CFF)
+    // DINÁMICO: Variables del tema
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
     val cuentoCompleto = storyData.resultStory.ifEmpty { "Generando relato..." }
     var textoMostrado by remember { mutableStateOf("") }
@@ -74,7 +72,7 @@ fun ResultScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(navyBg)) {
+    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
 
         // --- 1. FONDO E IMAGEN ---
         Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
@@ -84,13 +82,14 @@ fun ResultScreen(
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.25f
+                alpha = 0.25f // Suavizamos la imagen de fondo
             )
 
+            // DINÁMICO: El gradiente ahora usa el fondo dinámico (Navy o Blanco Técnico)
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(navyBg, navyBg.copy(alpha = 0.6f), navyBg),
+                        colors = listOf(bgColor, bgColor.copy(alpha = 0.6f), bgColor),
                         startY = 0f, endY = 1800f
                     )
                 )
@@ -104,19 +103,43 @@ fun ResultScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
                     listOf(storyData.genero, storyData.tono, storyData.epoca).forEach { tag ->
-                        Surface(color = violetaRegenerativo.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp), border = BorderStroke(0.5.dp, violetaRegenerativo.copy(alpha = 0.3f))) {
-                            Text(text = tag.uppercase(), modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), fontSize = 10.sp, color = celesteIA, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Surface(
+                            // DINÁMICO: Etiquetas con el color primario
+                            color = primaryColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(0.5.dp, primaryColor.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = tag.uppercase(),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                fontSize = 10.sp,
+                                color = primaryColor,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                         }
                     }
                 }
 
                 Text(
                     text = storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                    color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp, letterSpacing = (-1).sp,
+                    // DINÁMICO: Título
+                    color = textColor,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 38.sp,
+                    letterSpacing = (-1).sp,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 )
 
-                Text(text = textoMostrado, color = Color.White.copy(alpha = 0.9f), fontSize = 17.sp, lineHeight = 30.sp, textAlign = TextAlign.Start)
+                Text(
+                    text = textoMostrado,
+                    // DINÁMICO: Cuerpo del cuento
+                    color = textColor.copy(alpha = 0.9f),
+                    fontSize = 17.sp,
+                    lineHeight = 30.sp,
+                    textAlign = TextAlign.Start
+                )
                 Spacer(modifier = Modifier.height(180.dp))
             }
         }
@@ -124,27 +147,52 @@ fun ResultScreen(
         // --- 3. DOCK INFERIOR ---
         Box(
             modifier = Modifier.fillMaxWidth().height(160.dp).align(Alignment.BottomCenter)
-                .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.95f), navyBg)))
+                // DINÁMICO: Gradiente inferior para que los botones floten sobre el texto
+                .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, bgColor.copy(alpha = 0.95f), bgColor)))
                 .padding(horizontal = 24.dp).padding(bottom = 30.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { /* Guardar */ }, modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)), shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = celesteIA, contentColor = navyBg)) {
+                Button(
+                    onClick = { /* Guardar */ },
+                    modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)),
+                    shape = RoundedCornerShape(28.dp),
+                    // DINÁMICO: Botón primario
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = onPrimaryColor)
+                ) {
                     Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Guardar", fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Button(onClick = onGenerateAnother, modifier = Modifier.weight(1.2f).height(56.dp), shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f)), border = BorderStroke(1.dp, celesteIA.copy(alpha = 0.4f))) {
-                    Icon(Icons.Default.AutoAwesome, null, tint = celesteIA, modifier = Modifier.size(18.dp))
+                Button(
+                    onClick = onGenerateAnother,
+                    modifier = Modifier.weight(1.2f).height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    // DINÁMICO: Botón secundario outline
+                    colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.05f)),
+                    border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f))
+                ) {
+                    Icon(Icons.Default.AutoAwesome, null, tint = primaryColor, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold)
+                    Text("Regenerar", color = primaryColor, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(modifier = Modifier.width(64.dp))
             }
         }
 
-        Surface(modifier = Modifier.padding(bottom = 30.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp).clickable { isProfileMenuVisible = !isProfileMenuVisible }, shape = CircleShape, color = violetaRegenerativo, border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) { Box(contentAlignment = Alignment.Center) { Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp) } }
+        // Círculo de Perfil
+        Surface(
+            modifier = Modifier.padding(bottom = 30.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp).clickable { isProfileMenuVisible = !isProfileMenuVisible },
+            shape = CircleShape,
+            // DINÁMICO: Usamos el secundario (cyan/violeta alterno) para diferenciarlo
+            color = MaterialTheme.colorScheme.secondary,
+            border = BorderStroke(1.dp, textColor.copy(alpha = 0.2f))
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(text = letraUsuario, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
+        }
 
         // --- 4. REPRODUCTOR: CÚPULA PULIDA ---
         Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
@@ -157,8 +205,19 @@ fun ResultScreen(
             )
         }
 
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) { Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false }) }
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(), exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(), modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)) { ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = onLogout) }
+        // Fondos del menú de perfil
+        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false })
+        }
+        AnimatedVisibility(
+            visible = isProfileMenuVisible,
+            enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+            exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
+            modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)
+        ) {
+            // ACÁ USAMOS EL COMPONENTE QUE VIVE EN MAINACTIVITY
+            ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = onLogout)
+        }
     }
 }
 
@@ -171,8 +230,12 @@ fun UniverseDomeVisualizer(
     onBackClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    val celesteIA = Color(0xFF7BCBFF)
-    val navyBg = Color(0xFF101820)
+    // DINÁMICO: Extraemos los colores AFUERA del Canvas
+    val colorPrimario = MaterialTheme.colorScheme.primary
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     val smoothAmplitude by animateFloatAsState(
         targetValue = if (isPlaying) amplitude else 0f,
@@ -193,7 +256,8 @@ fun UniverseDomeVisualizer(
             .height(280.dp)
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(navyBg, navyBg.copy(alpha = 0.8f), Color.Transparent)
+                    // DINÁMICO: Difuminado superior
+                    colors = listOf(bgColor, bgColor.copy(alpha = 0.8f), Color.Transparent)
                 )
             )
     ) {
@@ -202,18 +266,15 @@ fun UniverseDomeVisualizer(
             val w = size.width
             val h = size.height
 
-            // 1. LA CÚPULA DE LUZ (Ahora más sutil y misteriosa)
             val domeCenter = Offset(w / 2f, 0f)
-
             val baseRadius = w * 0.45f
             val expandedRadius = baseRadius + (w * 0.4f * smoothAmplitude)
-
-            // REDUCIDO: La opacidad base y la fuerza de la luz al hablar ahora son mucho menores
             val domeAlpha = 0.05f + (0.18f * smoothAmplitude)
 
+            // 1. LA CÚPULA DE LUZ
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(celesteIA.copy(alpha = domeAlpha), Color.Transparent),
+                    colors = listOf(colorPrimario.copy(alpha = domeAlpha), Color.Transparent),
                     center = domeCenter,
                     radius = expandedRadius
                 ),
@@ -221,9 +282,8 @@ fun UniverseDomeVisualizer(
                 center = domeCenter
             )
 
-            // 2. LA MATRIZ DE PUNTOS (Con difuminado en la base)
+            // 2. LA MATRIZ DE PUNTOS
             val spacing = 65f
-
             val startX = (w % spacing) / 2f
             val startY = (h % spacing) / 2f
 
@@ -235,22 +295,17 @@ fun UniverseDomeVisualizer(
                     val wave = sin(time * 1.5f + (currentX * 0.005f) + (currentY * 0.005f))
                     val pulse = (wave + 1f) / 2f
 
-                    // EFECTO DE FADE-OUT (Difuminación en Y)
-                    // Calcula qué tan abajo está el punto (de 1.0 arriba a 0.0 abajo)
                     val yProgress = 1f - (currentY / h)
-                    // Aplicamos una curva para que el desvanecimiento sea orgánico y suave al final
                     val fadeMultiplier = (yProgress * 1.5f).coerceIn(0f, 1f).pow(1.5f)
 
                     val baseAlpha = 0.08f
                     val activeAlpha = (0.4f * smoothAmplitude * pulse)
-
-                    // Multiplicamos la opacidad total por el efecto de fade inferior
                     val finalAlpha = (baseAlpha + activeAlpha) * fadeMultiplier
 
-                    // Solo dibujamos el punto si tiene algo de opacidad para ahorrar rendimiento
                     if (finalAlpha > 0.01f) {
                         drawCircle(
-                            color = Color.White.copy(alpha = finalAlpha),
+                            // DINÁMICO: Puntos leen el color de texto para verse tanto en Dark como en Light
+                            color = textColor.copy(alpha = finalAlpha),
                             radius = 2f,
                             center = Offset(currentX, currentY)
                         )
@@ -271,10 +326,11 @@ fun UniverseDomeVisualizer(
                 .statusBarsPadding()
                 .padding(start = 16.dp, top = 16.dp)
                 .size(44.dp)
-                .background(Color(0xFF101820).copy(alpha = 0.5f), CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
+                // DINÁMICO: Fondo del botón de atrás
+                .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = onSurfaceColor)
         }
 
         Box(
@@ -283,47 +339,20 @@ fun UniverseDomeVisualizer(
                 .statusBarsPadding()
                 .padding(top = 24.dp)
                 .size(52.dp)
-                // Reduje un poco la sombra del botón para que acompañe la nueva luz sutil
-                .shadow(if (isPlaying) 12.dp else 0.dp, CircleShape, ambientColor = celesteIA, spotColor = celesteIA)
-                .background(Color(0xFF0A0F14), CircleShape)
-                .border(1.dp, celesteIA.copy(alpha = 0.6f), CircleShape)
+                // DINÁMICO: Botón Play central
+                .shadow(if (isPlaying) 12.dp else 0.dp, CircleShape, ambientColor = colorPrimario, spotColor = colorPrimario)
+                .background(surfaceColor, CircleShape)
+                .border(1.dp, colorPrimario.copy(alpha = 0.6f), CircleShape)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
-                CircularProgressIndicator(color = celesteIA, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                CircularProgressIndicator(color = colorPrimario, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
             } else if (!isPlaying) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(26.dp))
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = colorPrimario, modifier = Modifier.size(26.dp))
             } else {
-                Icon(Icons.Default.Pause, contentDescription = "Pause", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(26.dp))
+                Icon(Icons.Default.Pause, contentDescription = "Pause", tint = colorPrimario.copy(alpha = 0.8f), modifier = Modifier.size(26.dp))
             }
         }
-    }
-}
-
-// --- SUBCOMPONENTES (Perfil) ---
-@Composable
-fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
-    Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Hola, $nombreUsuario", color = Color(0xFF64748B), fontSize = 14.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.Close, null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp)) }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            ProfileMenuItem(Icons.Default.NightsStay, "Modo oscuro") {}
-            ProfileMenuItem(Icons.Default.Share, "Compartir") {}
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Black.copy(alpha = 0.05f))
-            ProfileMenuItem(Icons.AutoMirrored.Filled.ExitToApp, "Cerrar sesión", onLogout)
-        }
-    }
-}
-
-@Composable
-fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp)) {
-        Icon(icon, null, tint = Color(0xFF1E293B), modifier = Modifier.size(22.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(text = text, color = Color(0xFF1E293B), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
