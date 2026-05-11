@@ -49,16 +49,6 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import kotlin.random.Random
-
-// Modelo de partículas
-data class ParticulaScanner(
-    val xRelativa: Float,
-    val yRelativa: Float,
-    val tamano: Float,
-    val opacidadBase: Float,
-    val velocidadFlote: Float
-)
 
 @Composable
 fun CameraScreen(
@@ -83,8 +73,10 @@ fun CameraScreen(
 
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
+
     var procesandoCaptura by remember { mutableStateOf(false) }
-    var triggerScanner by remember { mutableStateOf(false) }
+    var triggerScanner by remember { mutableStateOf(false) } // Volvemos a habilitar el trigger
+
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var girandoCamara by remember { mutableStateOf(false) }
@@ -165,7 +157,7 @@ fun CameraScreen(
                 .then(if (girandoCamara) Modifier.blur(15.dp) else Modifier)
         )
 
-        // Sombreado perimetral para mejorar contraste de los controles
+        // Sombreado perimetral
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(brush = Brush.radialGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f))))
         }
@@ -179,7 +171,6 @@ fun CameraScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 180.dp)
         ) {
             Surface(
-                // DINÁMICO: Etiqueta de zoom
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
@@ -204,13 +195,17 @@ fun CameraScreen(
             CameraBottomControls(
                 onCaptureClick = {
                     if (procesandoCaptura || girandoCamara) return@CameraBottomControls
-                    scope.launch {
-                        triggerScanner = true; delay(700); procesandoCaptura = true
-                        tomarFotoTemporal(context, imageCapture) { uri ->
-                            val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
-                            navController.navigate("preview_screen/$encodedUri")
-                            procesandoCaptura = false
-                        }
+
+                    procesandoCaptura = true
+                    triggerScanner = true // Disparamos la animación visual AL MISMO TIEMPO
+
+                    // Disparo paralelo: Android guarda la foto en el disco mientras el láser baja.
+                    // Al no haber delays artificiales, se siente inmediato.
+                    tomarFotoTemporal(context, imageCapture) { uri ->
+                        val encodedUri = URLEncoder.encode(uri.toString(), StandardCharsets.UTF_8.toString())
+                        navController.navigate("preview_screen/$encodedUri")
+                        procesandoCaptura = false
+                        triggerScanner = false
                     }
                 },
                 onGalleryClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -225,18 +220,14 @@ fun CameraScreen(
         }
 
         VisorMinimalistaOverlay()
-        EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
 
-        // Flash de pantalla al tomar la foto
-        AnimatedVisibility(visible = procesandoCaptura, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.8f)))
-        }
+        // Renderizamos el láser optimizado
+        EfectoScannerPro(trigger = triggerScanner) { triggerScanner = false }
     }
 }
 
 @Composable
 fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Boolean, fraseNarrativa: String, onFlashToggle: () -> Unit) {
-    // DINÁMICO: Barra superior
     val bgColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
     val contentColor = MaterialTheme.colorScheme.onSurface
 
@@ -251,7 +242,8 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Bool
             IconButton(onClick = onBackClicked) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = contentColor) }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = if (triggerScanner) "ANALIZANDO..." else fraseNarrativa.uppercase(),
+                // Mostramos texto dinámico cuando el escáner se activa
+                text = if (triggerScanner) "ANALIZANDO ENTORNO..." else fraseNarrativa.uppercase(),
                 color = contentColor,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -268,7 +260,6 @@ fun CameraTopBar(onBackClicked: () -> Unit, flashMode: Int, triggerScanner: Bool
 
 @Composable
 fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit, onSwitchCameraClick: () -> Unit) {
-    // DINÁMICO: Controles inferiores
     val surfaceGlass = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
     val contentColor = MaterialTheme.colorScheme.onSurface
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -278,7 +269,6 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
             .padding(vertical = 20.dp, horizontal = 24.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            // Botón Galería
             Box(
                 modifier = Modifier.size(46.dp).clip(CircleShape).background(surfaceGlass)
                     .border(1.dp, contentColor.copy(alpha = 0.15f), CircleShape).clickable { onGalleryClick() },
@@ -287,13 +277,11 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
                 Icon(Icons.Default.PhotoLibrary, null, tint = contentColor, modifier = Modifier.size(20.dp))
             }
 
-            // Botón Captura Principal (Lo pasamos a color Primario en vez de Rojo para mantener la identidad)
             Box(
                 modifier = Modifier.size(72.dp).border(3.dp, contentColor, CircleShape)
                     .padding(6.dp).clip(CircleShape).background(primaryColor).clickable { onCaptureClick() }
             )
 
-            // Botón Girar Cámara
             Box(
                 modifier = Modifier.size(46.dp).clip(CircleShape).background(surfaceGlass)
                     .border(1.dp, contentColor.copy(alpha = 0.15f), CircleShape).clickable { onSwitchCameraClick() },
@@ -305,39 +293,55 @@ fun CameraBottomControls(onCaptureClick: () -> Unit, onGalleryClick: () -> Unit,
     }
 }
 
+// --- ESCÁNER REDISEÑADO: Tecno, limpio y eficiente ---
 @Composable
 fun EfectoScannerPro(trigger: Boolean, onFinished: () -> Unit) {
-    // DINÁMICO: El láser del escáner ahora usa tu color primario
-    val colorScanner = MaterialTheme.colorScheme.primary
+    // Usamos un cyan vibrante, típico de interfaces sci-fi/tecno
+    val colorLaser = Color(0xFF7BCBFF)
     val scanProgress = remember { Animatable(0f) }
     val alphaEfecto = remember { Animatable(0f) }
-    val particulas = remember { List(40) { ParticulaScanner(Random.nextFloat(), Random.nextFloat() * 0.14f - 0.07f, Random.nextFloat() * 2f + 1f, Random.nextFloat() * 0.5f + 0.2f, Random.nextFloat() * 15f - 7.5f) } }
 
     LaunchedEffect(trigger) {
         if (trigger) {
-            launch { alphaEfecto.animateTo(1f, tween(150)); delay(450); alphaEfecto.animateTo(0f, tween(250)) }
-            scanProgress.animateTo(1f, tween(850, easing = FastOutSlowInEasing))
-            scanProgress.snapTo(0f); onFinished()
+            // Animación más rápida para acompañar la captura sin frenarla
+            launch { alphaEfecto.animateTo(1f, tween(100)); delay(400); alphaEfecto.animateTo(0f, tween(200)) }
+            scanProgress.animateTo(1f, tween(650, easing = LinearOutSlowInEasing))
+            scanProgress.snapTo(0f)
+            onFinished()
         }
     }
 
     if (trigger) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width; val currentY = size.height * scanProgress.value
-            drawLine(colorScanner.copy(alpha = 0.3f * alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 5.dp.toPx(), StrokeCap.Round)
-            drawLine(colorScanner.copy(alpha = alphaEfecto.value), Offset(0f, currentY), Offset(w, currentY), 2.dp.toPx(), StrokeCap.Round)
-            particulas.forEach { p ->
-                val px = (p.xRelativa * w) + (p.velocidadFlote * scanProgress.value)
-                val py = currentY + (p.yRelativa * size.height)
-                drawCircle(colorScanner, p.tamano.dp.toPx(), Offset(px, py), p.opacidadBase * alphaEfecto.value)
-            }
+            val w = size.width
+            val currentY = size.height * scanProgress.value
+            val alturaEstela = 120.dp.toPx()
+
+            // 1. Estela (gradiente suave) que sigue al láser, simulando lectura
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, colorLaser.copy(alpha = 0.25f * alphaEfecto.value)),
+                    startY = currentY - alturaEstela,
+                    endY = currentY
+                ),
+                topLeft = Offset(0f, currentY - alturaEstela),
+                size = Size(w, alturaEstela)
+            )
+
+            // 2. Línea láser sólida
+            drawLine(
+                color = colorLaser.copy(alpha = alphaEfecto.value),
+                start = Offset(0f, currentY),
+                end = Offset(w, currentY),
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round
+            )
         }
     }
 }
 
 @Composable
 fun FocusRing(offset: Offset, onFinished: () -> Unit) {
-    // DINÁMICO: El anillo de enfoque
     val colorAnillo = MaterialTheme.colorScheme.primary
     val scale = remember { Animatable(1.5f) }
     val alpha = remember { Animatable(1f) }
@@ -349,7 +353,6 @@ fun FocusRing(offset: Offset, onFinished: () -> Unit) {
 
 @Composable
 fun VisorMinimalistaOverlay() {
-    // DINÁMICO: Las esquinas del visor usan el color de texto/íconos para asegurar contraste
     val colorVisor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width; val h = size.height; val arcSize = 80.dp.toPx(); val pad = 70.dp.toPx()
