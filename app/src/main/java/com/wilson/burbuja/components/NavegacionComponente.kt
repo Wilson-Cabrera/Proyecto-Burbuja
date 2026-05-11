@@ -1,4 +1,4 @@
-package com.wilson.burbuja
+package com.wilson.burbuja.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,57 +34,58 @@ fun NavegacionLiteral(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // BARRA DE NAVEGACIÓN
+        // --- BARRA DE NAVEGACIÓN ---
         Surface(
             modifier = Modifier
-                .weight(1f)
-                .height(56.dp),
+                .weight(1f) // Toma el espacio restante
+                .height(64.dp),
             shape = RoundedCornerShape(32.dp),
-            // DINÁMICO: Usamos Surface (Gris oscuro en Dark, Gris claro en Light)
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-            shadowElevation = 4.dp // Un toque de sombra para que flote
+            shadowElevation = 6.dp
         ) {
             Row(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp), // Padding interno para que los botones no toquen los bordes de la cápsula
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(8.dp) // Pequeño espacio entre los dos botones
             ) {
+                // CAMBIO CLAVE: weight(1f) y fillMaxHeight() hace que ocupen exactamente la mitad cada uno
                 ItemNavegacionLiteral(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     icon = Icons.Default.Home,
                     label = "Inicio",
                     selected = rutaActual == "inicio",
-                    onClick = { navController.navigate("inicio") }
+                    onClick = { navController.navigate("inicio") { launchSingleTop = true } }
                 )
 
                 ItemNavegacionLiteral(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     icon = Icons.Default.Star,
                     label = "Guardados",
                     selected = rutaActual == "guardados",
-                    onClick = { navController.navigate("guardados") }
+                    onClick = { navController.navigate("guardados") { launchSingleTop = true } }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-        // CÍRCULO DE PERFIL
+        // --- CÍRCULO DE PERFIL ---
         Surface(
             modifier = Modifier
-                .size(56.dp)
+                .size(64.dp)
                 .clickable { onProfileClick() },
             shape = CircleShape,
-            // DINÁMICO: Misma superficie que la barra para mantener coherencia
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp
+            shadowElevation = 6.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = letraUsuario.uppercase(),
-                    // DINÁMICO: Usamos el primario (Cyan/Violeta) para que la letra resalte
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
@@ -94,45 +95,51 @@ fun NavegacionLiteral(
     }
 }
 
+// CAMBIO CLAVE: Agregamos el parámetro 'modifier' para poder controlarlo desde el padre
 @Composable
-fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    // DINÁMICO: Si está seleccionado usamos el Primario. Si no, usamos el color de texto con opacidad.
+fun ItemNavegacionLiteral(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
     val colorContenido = if (selected) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     }
 
-    val modifierSeleccionado = if (selected) {
-        Modifier
-            .clip(CircleShape)
-            // DINÁMICO: Fondo del botón activo usando el primario con mucha transparencia
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+    val colorFondo = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
     } else {
-        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        Color.Transparent
     }
 
     Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .clickable { onClick() }
-            .then(modifierSeleccionado),
+        // Aplicamos el modifier (que trae el weight 1f) y le damos forma de cápsula interna
+        modifier = modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(colorFondo)
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = colorContenido,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
                 color = colorContenido,
                 fontSize = 14.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1
             )
         }

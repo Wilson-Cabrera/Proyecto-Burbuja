@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -39,6 +38,7 @@ import com.airbnb.lottie.compose.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.wilson.burbuja.components.NavegacionLiteral
 import com.wilson.burbuja.data.ElevenLabsConfig
 import com.wilson.burbuja.ui.theme.BurbujaTheme
 import com.wilson.burbuja.ui.theme.LocalThemeState
@@ -49,13 +49,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // --- PERSISTENCIA DE TEMA: LEER ANTES DE RENDERIZAR ---
+        val prefs = getSharedPreferences("BurbujaPrefs", Context.MODE_PRIVATE)
+
         setContent {
             val systemTheme = isSystemInDarkTheme()
-            var isDarkTheme by remember { mutableStateOf(systemTheme) }
+            // Recuperamos el tema guardado, si no existe usamos el del sistema
+            var isDarkTheme by remember {
+                mutableStateOf(prefs.getBoolean("isDarkTheme", systemTheme))
+            }
 
             CompositionLocalProvider(
                 LocalThemeState provides isDarkTheme,
-                LocalThemeToggle provides { isDarkTheme = !isDarkTheme }
+                LocalThemeToggle provides {
+                    val nuevoTema = !isDarkTheme
+                    isDarkTheme = nuevoTema
+                    // Guardamos la elección del usuario inmediatamente
+                    prefs.edit().putBoolean("isDarkTheme", nuevoTema).apply()
+                }
             ) {
                 BurbujaTheme(darkTheme = isDarkTheme) {
                     val backgroundColor = MaterialTheme.colorScheme.background
@@ -97,6 +109,9 @@ fun MainScreen() {
 
     val prefs = remember { context.getSharedPreferences("BurbujaPrefs", Context.MODE_PRIVATE) }
 
+    // --- PERSISTENCIA DE USUARIO: LEER NOMBRE AL ARRANCAR ---
+    val nombreGuardado = remember { prefs.getString("nombreUsuario", null) }
+
     LaunchedEffect(usuarioFirebase) {
         if (usuarioFirebase != null) {
             prefs.edit().putBoolean("yaVioOnboarding", true).apply()
@@ -105,20 +120,23 @@ fun MainScreen() {
 
     val yaVioOnboarding = remember { prefs.getBoolean("yaVioOnboarding", false) }
 
+    // Lógica de arranque: Si hay usuario Firebase O un nombre guardado (Invitado), vamos a inicio
     val pantallaDeArranque = remember {
         when {
-            usuarioFirebase != null -> "inicio"
+            usuarioFirebase != null || nombreGuardado != null -> "inicio"
             yaVioOnboarding -> "login"
             else -> "onboarding"
         }
     }
 
     var isProfileMenuVisible by remember { mutableStateOf(false) }
+
+    // Sincronización del nombre con la memoria del celular
     var nombreUsuario by remember {
         mutableStateOf(
             when {
-                usuarioFirebase == null -> "Usuario"
-                !usuarioFirebase.displayName.isNullOrBlank() -> usuarioFirebase.displayName!!
+                nombreGuardado != null -> nombreGuardado
+                usuarioFirebase != null && !usuarioFirebase.displayName.isNullOrBlank() -> usuarioFirebase.displayName!!
                 else -> "Usuario"
             }
         )
@@ -128,7 +146,13 @@ fun MainScreen() {
         FirebaseAuth.getInstance().signOut()
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
         GoogleSignIn.getClient(context, gso).signOut()
-        prefs.edit().putBoolean("yaVioOnboarding", true).apply()
+
+        // Limpiamos nombre al cerrar sesión, pero mantenemos que ya vio el onboarding
+        prefs.edit()
+            .putBoolean("yaVioOnboarding", true)
+            .remove("nombreUsuario")
+            .apply()
+
         nombreUsuario = "Usuario"
         isProfileMenuVisible = false
         navController.navigate("login") {
@@ -153,32 +177,20 @@ fun MainScreen() {
             NavHost(
                 navController = navController,
                 startDestination = pantallaDeArranque,
-                modifier = Modifier.fillMaxSize(),
-                enterTransition = { EnterTransition.None },
-                exitTransition = { ExitTransition.None },
-                popEnterTransition = { EnterTransition.None },
-                popExitTransition = { ExitTransition.None }
+                modifier = Modifier.fillMaxSize()
             ) {
-                // 1. PANTALLA DE ANIMACIÓN LOTTIE
                 composable("onboarding") {
                     OnboardingBurbuja(onFinish = {
-                        // Navegación directa al puente cinematográfico
                         navController.navigate("welcome") {
                             popUpTo("onboarding") { inclusive = true }
                         }
                     })
                 }
 
-                // 2. PANTALLA PUENTE (WelcomeScreen) - CON SALIDA FLUIDA
                 composable(
                     route = "welcome",
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(1200))
-                    },
-                    exitTransition = {
-                        // Se desvanece suavemente al salir hacia el login
-                        fadeOut(animationSpec = tween(1000))
-                    }
+                    enterTransition = { fadeIn(animationSpec = tween(1200)) },
+                    exitTransition = { fadeOut(animationSpec = tween(1000)) }
                 ) {
                     WelcomeScreen(
                         onNavigateToLogin = {
@@ -190,23 +202,25 @@ fun MainScreen() {
                     )
                 }
 
-                // 3. PANTALLA DE LOGIN - CON ENTRADA CINEMATOGRÁFICA
                 composable(
                     route = "login",
                     enterTransition = {
-                        // Solo hace la animación especial si viene desde la WelcomeScreen
                         if (initialState.destination.route == "welcome") {
                             fadeIn(animationSpec = tween(1500)) +
                                     scaleIn(initialScale = 0.95f, animationSpec = tween(1500))
                         } else {
-                            EnterTransition.None
+                            fadeIn(animationSpec = tween(800))
                         }
                     }
                 ) {
                     LoginScreen(
                         onLoginSuccess = { nombre ->
                             nombreUsuario = nombre
-                            prefs.edit().putBoolean("yaVioOnboarding", true).apply()
+                            // GUARDAMOS EL NOMBRE PARA SIEMPRE
+                            prefs.edit()
+                                .putBoolean("yaVioOnboarding", true)
+                                .putString("nombreUsuario", nombre)
+                                .apply()
                             navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
                         },
                         onNavigateToRegister = {}
@@ -288,21 +302,15 @@ fun MainScreen() {
     }
 }
 
+// --- COMPOSABLES AUXILIARES ---
+
 @Composable
 fun OnboardingBurbuja(onFinish: () -> Unit) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.intro_burbuja))
     val progress by animateLottieCompositionAsState(composition = composition, iterations = 1)
+    LaunchedEffect(progress) { if (progress == 1f) onFinish() }
 
-    LaunchedEffect(progress) {
-        if (progress == 1f) {
-            onFinish()
-        }
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37)),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37)), contentAlignment = Alignment.Center) {
         LottieAnimation(
             composition = composition,
             progress = { progress },
@@ -316,12 +324,7 @@ fun OnboardingBurbuja(onFinish: () -> Unit) {
 fun PantallaInicio(onAbrirCamara: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("¿Qué historia hay a tu alrededor?",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                fontSize = 16.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 40.dp)
-            )
+            Text("¿Qué historia hay a tu alrededor?", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f), fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 40.dp))
             BotonCamaraPrincipal(onClick = onAbrirCamara)
         }
     }
@@ -329,12 +332,7 @@ fun PantallaInicio(onAbrirCamara: () -> Unit) {
 
 @Composable
 fun BotonCamaraPrincipal(onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(0.8f).height(60.dp),
-        shape = RoundedCornerShape(30.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-    ) {
+    Button(onClick = onClick, modifier = Modifier.fillMaxWidth(0.8f).height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
         Icon(Icons.Default.CameraAlt, null)
         Spacer(Modifier.width(12.dp))
         Text("Abrir la cámara", fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -348,17 +346,11 @@ fun PantallaGuardados() { }
 fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
     val isDarkTheme = LocalThemeState.current
     val toggleTheme = LocalThemeToggle.current
-    Card(
-        modifier = Modifier.width(260.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Hola, $nombreUsuario", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 14.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                }
+                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(16.dp)) }
             }
             Spacer(modifier = Modifier.height(16.dp))
             ProfileMenuItem(icon = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.NightsStay, text = if (isDarkTheme) "Modo claro" else "Modo oscuro", onClick = toggleTheme)

@@ -23,25 +23,27 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
-    // 1. FRASES CON ALTO CONTRASTE TIPOGRÁFICO
+
     val frases = listOf(
         buildAnnotatedString {
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Transformá tu ") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("entorno") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append(" en\n") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("relatos visuales.") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Transformá tu entorno en una\n") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("experiencia visual reimaginada") }
         },
         buildAnnotatedString {
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Descubrí ") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("historias ocultas\n") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("en cada ") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("imagen.") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Dale voz a lo cotidiano y descubrí el\n") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("relato oculto en cada imagen") }
         },
         buildAnnotatedString {
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Dale ") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("voz") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append(" a lo que te ") }
-            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("rodea.") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Revelá lo invisible y conectá con la\n") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("narrativa que la IA construye para vos") }
+        },
+        buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Convertite en el autor de historias que\n") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("redefinen tu forma de ver el mundo") }
+        },
+        buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraLight)) { append("Explorá tu imaginación sin límites y\n") }
+            withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold)) { append("empezá a escribir tu próximo relato") }
         }
     )
 
@@ -49,23 +51,27 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
     var textoVisible by remember { mutableStateOf(false) }
     var mostrarBoton by remember { mutableStateOf(false) }
 
-    // 2. MOTOR CINEMATOGRÁFICO EN LOOP (5 seg por frase)
+    // --- MOTOR CINEMATOGRÁFICO AJUSTADO ---
     LaunchedEffect(Unit) {
-        delay(800)
-        var ciclosCompletados = 0
+        delay(800) // Pausa inicial estética
 
         while (true) {
             textoVisible = true
-            delay(5000) // Duración de lectura
+
+            // ACTIVACIÓN TEMPRANA DEL BOTÓN
+            // Si es la primera frase, esperamos solo 3 segundos para revelar el botón
+            if (indiceActual == 0 && !mostrarBoton) {
+                delay(3000)
+                mostrarBoton = true
+                delay(2000) // Completamos los 5 seg de lectura de la primera frase
+            } else {
+                delay(5000) // Duración normal para el resto de las frases
+            }
 
             textoVisible = false
-            delay(1500) // Transición de salida + pausa en negro
+            delay(1500) // Transición de salida
 
             indiceActual = (indiceActual + 1) % frases.size
-
-            // Mostramos el botón después de la primera rotación completa
-            if (indiceActual == 0) ciclosCompletados++
-            if (ciclosCompletados >= 1) mostrarBoton = true
         }
     }
 
@@ -75,60 +81,60 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
             .background(Color(0xFF1F2A37)),
         contentAlignment = Alignment.Center
     ) {
-        // --- BLOQUE DE TEXTO CENTRAL ---
+        // --- TEXTO CENTRAL ---
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(0.85f)
         ) {
             AnimatedVisibility(
                 visible = textoVisible,
-                enter = fadeIn(animationSpec = tween(1000)),
+                enter = fadeIn(animationSpec = tween(1200)),
                 exit = fadeOut(animationSpec = tween(1000))
             ) {
                 Text(
                     text = frases[indiceActual],
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
                     fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.Center,
                     lineHeight = 32.sp,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(horizontal = 50.dp)
+                    letterSpacing = 0.8.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-// --- BOTÓN "EMPEZAR" REDONDEADO (Identidad Burbuja) ---
+        // --- BOTÓN "EMPEZAR" ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 80.dp, start = 45.dp, end = 45.dp),
+                .padding(bottom = 80.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             AnimatedVisibility(
                 visible = mostrarBoton,
-                enter = fadeIn(animationSpec = tween(1500)) + slideInVertically { it / 2 }
+                enter = fadeIn(animationSpec = tween(1500)) + slideInVertically { it / 3 }
+                // No le ponemos exit para que el botón se quede fijo una vez que aparece
             ) {
-                // Usamos OutlinedButton que es el correcto para este estilo
                 OutlinedButton(
                     onClick = onNavigateToLogin,
                     modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .height(58.dp),
+                        .fillMaxWidth(0.75f)
+                        .height(54.dp),
                     shape = RoundedCornerShape(30.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White, // Color del ripple y contenido
+                        contentColor = Color.White,
                         containerColor = Color.Transparent
                     ),
                     border = BorderStroke(1.dp, Color(0xFF7BCBFF).copy(alpha = 0.4f))
                 ) {
                     Text(
                         text = "Empezar",
-                        color = Color.White, // Color explícito para forzar que se vea
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.2.sp
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 2.sp
                     )
                 }
             }
