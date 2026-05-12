@@ -82,15 +82,22 @@ fun ResultScreen(
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.25f // Suavizamos la imagen de fondo
+                // PUNTO MEDIO: 0.65f (Ni muy apagada, ni muy invasiva)
+                alpha = 0.65f
             )
 
-            // DINÁMICO: El gradiente ahora usa el fondo dinámico (Navy o Blanco Técnico)
+            // DINÁMICO: El gradiente permite que la imagen respire, con un techo suave
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(bgColor, bgColor.copy(alpha = 0.6f), bgColor),
-                        startY = 0f, endY = 1800f
+                        colors = listOf(
+                            bgColor.copy(alpha = 0.3f), // Techo oscuro suave
+                            bgColor.copy(alpha = 0.1f), // Zona clara para la cúpula y la foto
+                            bgColor.copy(alpha = 0.9f), // Oscurece para el texto
+                            bgColor                     // Fondo sólido abajo
+                        ),
+                        startY = 0f,
+                        endY = 1500f
                     )
                 )
             )
@@ -256,8 +263,8 @@ fun UniverseDomeVisualizer(
             .height(280.dp)
             .background(
                 Brush.verticalGradient(
-                    // DINÁMICO: Difuminado superior
-                    colors = listOf(bgColor, bgColor.copy(alpha = 0.8f), Color.Transparent)
+                    // PUNTO MEDIO: Sombra en la parte superior para enmarcar botones, bajando a transparente
+                    colors = listOf(bgColor.copy(alpha = 0.7f), Color.Transparent)
                 )
             )
     ) {

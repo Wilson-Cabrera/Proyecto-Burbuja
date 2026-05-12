@@ -63,10 +63,10 @@ fun CameraScreen(
     val frasesNarrativas = remember {
         listOf(
             "¿Y si esto fuera un cuento?",
-            "Capturando pedacitos de magia...",
+            "Buscando el alma del relato...",
             "Transformando la realidad...",
             "¿Qué historia se esconde aquí?",
-            "Buscando el inicio de un relato..."
+            "Buscando el inicio de una historia..."
         )
     }
     val fraseSeleccionada = remember { frasesNarrativas.random() }

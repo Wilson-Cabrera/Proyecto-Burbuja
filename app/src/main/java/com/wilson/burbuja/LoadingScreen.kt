@@ -97,7 +97,7 @@ fun LoadingScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "BURBUJA IA",
+                text = "BURBUJA AI",
                 color = Color.White,
                 fontSize = 12.sp,
                 fontFamily = IBMPlexSans, // Asegúrate de tener tus fuentes importadas
@@ -130,7 +130,7 @@ fun LoadingScreen(
                 else -> {
                     // SI ESTÁ CARGANDO: Texto normal
                     val mensajeCarga = if (currentState is StoryState.Loading) {
-                        "Sintetizando variables narrativas..."
+                        "Tu mundo tiene una historia que contarte..."
                     } else {
                         "Analizando fragmentos de realidad..."
                     }
