@@ -5,6 +5,7 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class StoryData(
+    val id: String = "",
     val photoUri: String = "",
     val genero: String = "",
     val narrador: String = "",
@@ -12,5 +13,6 @@ data class StoryData(
     val epoca: String = "",       // Reemplaza ambiente/contexto
     val detonante: String = "",   // El input: "El Detonante"
     val resultStory: String = "", // Aquí se guarda el cuento final
-    val title: String = ""        // <--- NUEVO: El bolsillo para el título
+    val title: String = "",        // <--- NUEVO: El bolsillo para el título
+    val fecha: String = ""
 ) : Parcelable

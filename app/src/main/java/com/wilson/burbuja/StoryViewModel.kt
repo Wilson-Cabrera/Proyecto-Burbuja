@@ -32,7 +32,7 @@ class StoryViewModel : ViewModel() {
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
 
-    // --- NUEVO: Controlador de Ondas para la UI ---
+    // --- Controlador de Ondas para la UI ---
     var audioAmplitude by mutableStateOf(0f)
         private set
     private var visualizerJob: Job? = null
@@ -82,7 +82,7 @@ class StoryViewModel : ViewModel() {
         }
     }
 
-    // --- FUNCIÓN MODIFICADA PARA SIMULACIÓN ---
+    // --- SIMULACIÓN RESTAURADA PARA AHORRAR CRÉDITOS ---
     fun prepararAudio(context: Context, texto: String, voiceId: String, storyId: String) {
         viewModelScope.launch {
             isAudioLoading = true
@@ -97,6 +97,10 @@ class StoryViewModel : ViewModel() {
             startVisualizerLoop() // Arrancamos la onda
 
             println("Burbuja Debug: Simulación lista. ¡Mirá el orbe!")
+
+            // Cuando quieras volver a la API real, borrá lo de arriba y descomentá esto:
+            // val fileName = "story_audio_$storyId.mp3"
+            // descargarAudio(context, texto, voiceId, fileName)
         }
     }
 
@@ -108,7 +112,11 @@ class StoryViewModel : ViewModel() {
             val archivo = audioRepository?.obtenerRelatoAudio(texto, voiceId, fileName)
             if (archivo != null) {
                 audioFile = archivo
+                isAudioLoading = false
                 alternarAudio(context, archivo)
+            } else {
+                isAudioLoading = false
+                audioErrorMessage = "No se pudo procesar el archivo de audio."
             }
         } catch (e: Exception) {
             if (e.message == "SIN_CREDITOS") {
@@ -166,7 +174,7 @@ class StoryViewModel : ViewModel() {
         }
     }
 
-    // --- NUEVO: Rutina matemática que simula el ecualizador de voz ---
+    // --- Rutina matemática que simula el ecualizador de voz ---
     private fun startVisualizerLoop() {
         visualizerJob?.cancel()
         visualizerJob = viewModelScope.launch {

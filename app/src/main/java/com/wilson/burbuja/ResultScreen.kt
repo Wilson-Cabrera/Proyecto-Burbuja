@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -45,56 +46,77 @@ fun ResultScreen(
     isAudioLoading: Boolean,
     isPlaying: Boolean,
     audioAmplitude: Float,
+    isAnonymous: Boolean,
     onPlayAudioClick: () -> Unit,
     onStopAudioClick: () -> Unit,
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onRealSaveClick: () -> Unit,
+    onUpgradeAccountClick: () -> Unit
 ) {
     val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "W"
     var isProfileMenuVisible by remember { mutableStateOf(false) }
+    var showLoginDialog by rememberSaveable { mutableStateOf(false) }
+
+    val blurRadius by animateDpAsState(
+        targetValue = if (isProfileMenuVisible || showLoginDialog) 20.dp else 0.dp,
+        animationSpec = tween(300),
+        label = "blur_anim"
+    )
+
     val scrollState = rememberScrollState()
 
-    // DINÁMICO: Variables del tema
     val bgColor = MaterialTheme.colorScheme.background
     val textColor = MaterialTheme.colorScheme.onBackground
     val primaryColor = MaterialTheme.colorScheme.primary
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
     val cuentoCompleto = storyData.resultStory.ifEmpty { "Generando relato..." }
-    var textoMostrado by remember { mutableStateOf("") }
+
+    var yaSeEscribio by rememberSaveable { mutableStateOf(false) }
+    var textoMostrado by rememberSaveable { mutableStateOf(if (yaSeEscribio) cuentoCompleto else "") }
 
     LaunchedEffect(cuentoCompleto) {
-        textoMostrado = ""
-        cuentoCompleto.forEachIndexed { index, _ ->
-            textoMostrado = cuentoCompleto.substring(0, index + 1)
-            delay(15)
+        if (cuentoCompleto.isNotEmpty() && cuentoCompleto != "Generando relato...") {
+            if (!yaSeEscribio) {
+                textoMostrado = ""
+                cuentoCompleto.forEachIndexed { index, _ ->
+                    textoMostrado = cuentoCompleto.substring(0, index + 1)
+                    delay(15)
+                }
+                yaSeEscribio = true
+            } else {
+                textoMostrado = cuentoCompleto
+            }
         }
     }
+
+    // SOLUCIÓN AL GLITCH: Eliminamos por completo el LaunchedEffect(isAnonymous) de acá.
+    // Al no alterar el estado de la pantalla en medio de la autenticación, evitamos refundar la UI.
+    // Ahora, MainActivity maneja la transición de forma limpia hacia la biblioteca.
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
 
         // --- 1. FONDO E IMAGEN ---
-        Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
+        Box(modifier = Modifier.fillMaxSize().blur(blurRadius)) {
 
             AsyncImage(
                 model = storyData.photoUri,
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                // PUNTO MEDIO: 0.65f (Ni muy apagada, ni muy invasiva)
                 alpha = 0.65f
             )
 
-            // DINÁMICO: El gradiente permite que la imagen respire, con un techo suave
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            bgColor.copy(alpha = 0.3f), // Techo oscuro suave
-                            bgColor.copy(alpha = 0.1f), // Zona clara para la cúpula y la foto
-                            bgColor.copy(alpha = 0.9f), // Oscurece para el texto
-                            bgColor                     // Fondo sólido abajo
+                            bgColor.copy(alpha = 0.3f),
+                            bgColor.copy(alpha = 0.1f),
+                            bgColor.copy(alpha = 0.9f),
+                            bgColor
                         ),
                         startY = 0f,
                         endY = 1500f
@@ -111,7 +133,6 @@ fun ResultScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
                     listOf(storyData.genero, storyData.tono, storyData.epoca).forEach { tag ->
                         Surface(
-                            // DINÁMICO: Etiquetas con el color primario
                             color = primaryColor.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(0.5.dp, primaryColor.copy(alpha = 0.3f))
@@ -130,7 +151,6 @@ fun ResultScreen(
 
                 Text(
                     text = storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                    // DINÁMICO: Título
                     color = textColor,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
@@ -141,7 +161,6 @@ fun ResultScreen(
 
                 Text(
                     text = textoMostrado,
-                    // DINÁMICO: Cuerpo del cuento
                     color = textColor.copy(alpha = 0.9f),
                     fontSize = 17.sp,
                     lineHeight = 30.sp,
@@ -154,17 +173,21 @@ fun ResultScreen(
         // --- 3. DOCK INFERIOR ---
         Box(
             modifier = Modifier.fillMaxWidth().height(160.dp).align(Alignment.BottomCenter)
-                // DINÁMICO: Gradiente inferior para que los botones floten sobre el texto
                 .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, bgColor.copy(alpha = 0.95f), bgColor)))
                 .padding(horizontal = 24.dp).padding(bottom = 30.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Button(
-                    onClick = { /* Guardar */ },
+                    onClick = {
+                        if (isAnonymous) {
+                            showLoginDialog = true
+                        } else {
+                            onRealSaveClick()
+                        }
+                    },
                     modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)),
                     shape = RoundedCornerShape(28.dp),
-                    // DINÁMICO: Botón primario
                     colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = onPrimaryColor)
                 ) {
                     Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
@@ -176,7 +199,6 @@ fun ResultScreen(
                     onClick = onGenerateAnother,
                     modifier = Modifier.weight(1.2f).height(56.dp),
                     shape = RoundedCornerShape(28.dp),
-                    // DINÁMICO: Botón secundario outline
                     colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.05f)),
                     border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f))
                 ) {
@@ -192,7 +214,6 @@ fun ResultScreen(
         Surface(
             modifier = Modifier.padding(bottom = 30.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp).clickable { isProfileMenuVisible = !isProfileMenuVisible },
             shape = CircleShape,
-            // DINÁMICO: Usamos el secundario (cyan/violeta alterno) para diferenciarlo
             color = MaterialTheme.colorScheme.secondary,
             border = BorderStroke(1.dp, textColor.copy(alpha = 0.2f))
         ) {
@@ -201,7 +222,7 @@ fun ResultScreen(
             }
         }
 
-        // --- 4. REPRODUCTOR: CÚPULA PULIDA ---
+        // --- 4. REPRODUCTOR ---
         Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
             UniverseDomeVisualizer(
                 isPlaying = isPlaying,
@@ -212,7 +233,6 @@ fun ResultScreen(
             )
         }
 
-        // Fondos del menú de perfil
         AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false })
         }
@@ -222,8 +242,19 @@ fun ResultScreen(
             exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)
         ) {
-            // ACÁ USAMOS EL COMPONENTE QUE VIVE EN MAINACTIVITY
             ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = onLogout)
+        }
+
+        // --- 5. RENDERIZADO DEL DIÁLOGO ---
+        if (showLoginDialog) {
+            com.wilson.burbuja.components.LoginRequiredDialog(
+                onDismiss = { showLoginDialog = false },
+                onLoginClick = {
+                    // El diálogo se queda totalmente quieto sosteniendo la escena en lo que
+                    // el sistema procesa Google y MainActivity ejecuta la navegación.
+                    onUpgradeAccountClick()
+                }
+            )
         }
     }
 }
@@ -237,7 +268,6 @@ fun UniverseDomeVisualizer(
     onBackClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    // DINÁMICO: Extraemos los colores AFUERA del Canvas
     val colorPrimario = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.background
     val textColor = MaterialTheme.colorScheme.onBackground
@@ -263,7 +293,6 @@ fun UniverseDomeVisualizer(
             .height(280.dp)
             .background(
                 Brush.verticalGradient(
-                    // PUNTO MEDIO: Sombra en la parte superior para enmarcar botones, bajando a transparente
                     colors = listOf(bgColor.copy(alpha = 0.7f), Color.Transparent)
                 )
             )
@@ -278,7 +307,6 @@ fun UniverseDomeVisualizer(
             val expandedRadius = baseRadius + (w * 0.4f * smoothAmplitude)
             val domeAlpha = 0.05f + (0.18f * smoothAmplitude)
 
-            // 1. LA CÚPULA DE LUZ
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(colorPrimario.copy(alpha = domeAlpha), Color.Transparent),
@@ -289,7 +317,6 @@ fun UniverseDomeVisualizer(
                 center = domeCenter
             )
 
-            // 2. LA MATRIZ DE PUNTOS
             val spacing = 65f
             val startX = (w % spacing) / 2f
             val startY = (h % spacing) / 2f
@@ -311,7 +338,6 @@ fun UniverseDomeVisualizer(
 
                     if (finalAlpha > 0.01f) {
                         drawCircle(
-                            // DINÁMICO: Puntos leen el color de texto para verse tanto en Dark como en Light
                             color = textColor.copy(alpha = finalAlpha),
                             radius = 2f,
                             center = Offset(currentX, currentY)
@@ -324,8 +350,6 @@ fun UniverseDomeVisualizer(
             }
         }
 
-        // --- UI DEL REPRODUCTOR ---
-
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
@@ -333,7 +357,6 @@ fun UniverseDomeVisualizer(
                 .statusBarsPadding()
                 .padding(start = 16.dp, top = 16.dp)
                 .size(44.dp)
-                // DINÁMICO: Fondo del botón de atrás
                 .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
                 .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
         ) {
@@ -346,7 +369,6 @@ fun UniverseDomeVisualizer(
                 .statusBarsPadding()
                 .padding(top = 24.dp)
                 .size(52.dp)
-                // DINÁMICO: Botón Play central
                 .shadow(if (isPlaying) 12.dp else 0.dp, CircleShape, ambientColor = colorPrimario, spotColor = colorPrimario)
                 .background(surfaceColor, CircleShape)
                 .border(1.dp, colorPrimario.copy(alpha = 0.6f), CircleShape)

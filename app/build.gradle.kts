@@ -98,6 +98,11 @@ dependencies {
 
     implementation("com.airbnb.android:lottie-compose:6.4.0")
 
+    // Firebase Firestore (Base de datos de los cuentos)
+    implementation("com.google.firebase:firebase-firestore")
+    // Firebase Storage (Para guardar las fotos en la nube)
+    implementation("com.google.firebase:firebase-storage")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
