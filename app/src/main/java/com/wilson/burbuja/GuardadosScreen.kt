@@ -1,31 +1,57 @@
 package com.wilson.burbuja
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource // Nuevo para capturar el toque
+import androidx.compose.foundation.interaction.collectIsPressedAsState // Nuevo para saber si se presiona
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -36,160 +62,271 @@ import coil.compose.AsyncImage
 @Composable
 fun GuardadosScreen(
     listaHistorias: List<StoryData>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onDeleteStory: (StoryData) -> Unit,
-    onStoryClick: (StoryData) -> Unit, // <-- NUEVO: Para escuchar el toque en la tarjeta
+    onStoryClick: (StoryData) -> Unit,
     onNavigateToCreate: () -> Unit
 ) {
     var searchText by remember { mutableStateOf("") }
+    var isSearchExpanded by remember { mutableStateOf(false) }
+
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+
     val textColor = MaterialTheme.colorScheme.onBackground
     val primaryColor = MaterialTheme.colorScheme.primary
 
+    val pullRefreshState = rememberPullToRefreshState()
+
+    val searchWidth by animateDpAsState(
+        targetValue = if (isSearchExpanded) 300.dp else 48.dp,
+        animationSpec = tween(durationMillis = 400),
+        label = "searchWidth"
+    )
+
+    val historiasFiltradas = remember(searchText, listaHistorias) {
+        listaHistorias.filter { historia ->
+            historia.title.contains(searchText, ignoreCase = true) ||
+                    historia.resultStory.contains(searchText, ignoreCase = true)
+        }
+    }
+
     var cuentoABorrar by remember { mutableStateOf<StoryData?>(null) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+        state = pullRefreshState,
+        indicator = {
+            BurbujaRefreshIndicator(
+                state = pullRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(60.dp))
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .height(48.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
-                border = BorderStroke(1.dp, textColor.copy(alpha = 0.2f))
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 20.dp, end = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Buscar...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontSize = 14.sp,
-                        color = textColor.copy(alpha = 0.5f)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(primaryColor.copy(alpha = 0.8f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(50.dp))
-
-            if (listaHistorias.isEmpty()) {
-                EmptyLibraryViewFigma(onNavigateToCreate, textColor, primaryColor)
-            } else {
-                Column(
+                // --- HEADER ---
+                Spacer(modifier = Modifier.height(60.dp))
+                Box(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    contentAlignment = Alignment.CenterEnd
                 ) {
-                    Text(
-                        text = "Mis burbujas...",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textColor
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Viven acá...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontSize = 14.sp,
-                        color = textColor.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(bottom = 40.dp)
-                    )
-                }
+                    Surface(
+                        modifier = Modifier
+                            .width(searchWidth)
+                            .height(48.dp)
+                            .clickable(enabled = !isSearchExpanded) {
+                                isSearchExpanded = true
+                            },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSearchExpanded) primaryColor.copy(alpha = 0.6f) else textColor.copy(alpha = 0.2f)
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End,
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp)
+                        ) {
+                            AnimatedVisibility(
+                                visible = isSearchExpanded,
+                                enter = fadeIn(tween(300, delayMillis = 100)),
+                                exit = fadeOut(tween(150)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(start = 12.dp, end = 8.dp)
+                                ) {
+                                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                        if (searchText.isEmpty()) {
+                                            Text(
+                                                text = "Buscar...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontSize = 14.sp,
+                                                color = textColor.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = searchText,
+                                            onValueChange = { searchText = it },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .focusRequester(focusRequester),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor, fontSize = 14.sp),
+                                            cursorBrush = SolidColor(primaryColor),
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
+                                        )
+                                    }
 
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                    contentPadding = PaddingValues(bottom = 120.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(
-                        items = listaHistorias,
-                        key = { it.id }
-                    ) { historia ->
+                                    if (searchText.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { searchText = "" },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = null,
+                                                tint = textColor.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
 
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { dismissValue ->
-                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                    cuentoABorrar = historia
-                                    false
-                                } else {
-                                    false
+                                LaunchedEffect(isSearchExpanded) {
+                                    if (isSearchExpanded) focusRequester.requestFocus()
                                 }
                             }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(primaryColor.copy(alpha = 0.8f), CircleShape)
+                                    .clickable {
+                                        if (isSearchExpanded && searchText.isEmpty()) {
+                                            isSearchExpanded = false
+                                            focusManager.clearFocus()
+                                        } else {
+                                            isSearchExpanded = true
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(50.dp))
+
+                if (listaHistorias.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        EmptyLibraryViewFigma(onNavigateToCreate, textColor, primaryColor)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Mis burbujas...",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textColor
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Viven acá...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 14.sp,
+                            color = textColor.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(bottom = 40.dp)
+                        )
+                    }
 
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
-                            backgroundContent = {
-                                val backgroundAlpha by animateFloatAsState(
-                                    targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1f else 0f,
-                                    label = "alphaAnim"
+                    if (historiasFiltradas.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            NoResultsView(searchText, textColor)
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(bottom = 120.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(
+                                items = historiasFiltradas,
+                                key = { it.id }
+                            ) { historia ->
+
+                                val dismissState = rememberSwipeToDismissBoxState(
+                                    confirmValueChange = { dismissValue ->
+                                        if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                            cuentoABorrar = historia
+                                            false
+                                        } else {
+                                            false
+                                        }
+                                    }
                                 )
 
-                                val modernRed = Color(0xFFD32F2F)
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    enableDismissFromStartToEnd = false,
+                                    enableDismissFromEndToStart = true,
+                                    backgroundContent = {
+                                        val backgroundAlpha by animateFloatAsState(
+                                            targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1f else 0f,
+                                            label = "alphaAnim"
+                                        )
 
-                                val difuminadoGradient = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        modernRed.copy(alpha = 0.1f),
-                                        modernRed.copy(alpha = 0.7f)
-                                    ),
-                                    startX = 0f,
-                                )
+                                        val modernRed = Color(0xFFD32F2F)
 
-                                val scale by animateFloatAsState(
-                                    targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.2f else 0.8f,
-                                    label = "scaleAnim"
-                                )
+                                        val difuminadoGradient = Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                modernRed.copy(alpha = 0.1f),
+                                                modernRed.copy(alpha = 0.7f)
+                                            ),
+                                            startX = 0f,
+                                        )
 
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(100.dp)
-                                        .clip(CircleShape)
-                                        .graphicsLayer(alpha = backgroundAlpha)
-                                        .background(difuminadoGradient),
-                                    contentAlignment = Alignment.CenterEnd
+                                        val scale by animateFloatAsState(
+                                            targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.2f else 0.8f,
+                                            label = "scaleAnim"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(110.dp)
+                                                .clip(RoundedCornerShape(24.dp))
+                                                .graphicsLayer(alpha = backgroundAlpha)
+                                                .background(difuminadoGradient),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Eliminar",
+                                                tint = Color.White,
+                                                modifier = Modifier
+                                                    .padding(end = 28.dp)
+                                                    .scale(scale)
+                                            )
+                                        }
+                                    }
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Eliminar",
-                                        tint = Color.White,
-                                        modifier = Modifier
-                                            .padding(end = 28.dp)
-                                            .scale(scale)
+                                    StoryCard(
+                                        story = historia,
+                                        textColor = textColor,
+                                        primaryColor = primaryColor,
+                                        onClick = { onStoryClick(historia) }
                                     )
                                 }
                             }
-                        ) {
-                            StoryCard(
-                                story = historia,
-                                textColor = textColor,
-                                primaryColor = primaryColor,
-                                onClick = { onStoryClick(historia) } // <-- NUEVO: Dispara el clic
-                            )
                         }
                     }
                 }
@@ -200,9 +337,7 @@ fun GuardadosScreen(
     if (cuentoABorrar != null) {
         AlertDialog(
             onDismissRequest = { cuentoABorrar = null },
-            title = {
-                Text("Eliminar Burbuja", fontWeight = FontWeight.Bold, color = textColor)
-            },
+            title = { Text("Eliminar Burbuja", fontWeight = FontWeight.Bold, color = textColor) },
             text = {
                 Text(
                     text = buildAnnotatedString {
@@ -235,45 +370,149 @@ fun GuardadosScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BurbujaRefreshIndicator(
+    state: PullToRefreshState,
+    isRefreshing: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val cyanColor = Color(0xFF00E5FF)
+    val purpleColor = Color(0xFFB388FF)
+
+    val infiniteTransition = rememberInfiniteTransition(label = "spinnerTransition")
+
+    val animatedColor by infiniteTransition.animateColor(
+        initialValue = primaryColor,
+        targetValue = primaryColor,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 2000
+                primaryColor at 0
+                cyanColor at 666
+                purpleColor at 1333
+                primaryColor at 2000
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "colorAnim"
+    )
+
+    val pullFraction = state.distanceFraction.coerceIn(0f, 1f)
+
+    if (pullFraction > 0f || isRefreshing) {
+        Box(
+            modifier = modifier
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = 8.dp)
+                .size(44.dp)
+                .graphicsLayer {
+                    shadowElevation = 12f
+                    shape = CircleShape
+                    val scaleMultiplier = if (isRefreshing) 1f else (0.5f + (pullFraction * 0.6f)).coerceAtMost(1.1f)
+                    scaleX = scaleMultiplier
+                    scaleY = scaleMultiplier
+                }
+                .background(MaterialTheme.colorScheme.surface, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isRefreshing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = animatedColor,
+                    strokeWidth = 3.dp,
+                    strokeCap = StrokeCap.Round
+                )
+            } else {
+                CircularProgressIndicator(
+                    progress = { pullFraction },
+                    modifier = Modifier.size(24.dp),
+                    color = primaryColor,
+                    strokeWidth = 3.dp,
+                    trackColor = Color.Transparent,
+                    strokeCap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+// --- STORY CARD: CON EFECTO DE REBOTE TÁCTIL (SPRING POP) ---
 @Composable
 fun StoryCard(
     story: StoryData,
     textColor: Color,
     primaryColor: Color,
-    onClick: () -> Unit // <-- NUEVO: Recibe la función de clic
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = Modifier
+    // Escuchador de interacciones del usuario
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Animación elástica de escala basada en si está presionado o no
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy, // Rebote intermedio placentero
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "cardBounce"
+    )
+
+    // Animación de la sombra (se reduce la elevación cuando se hunde)
+    val elevation by animateDpAsState(
+        targetValue = if (isPressed) 2.dp else 6.dp,
+        animationSpec = tween(durationMillis = 100),
+        label = "cardElevation"
+    )
+
+    Card(
+        modifier = modifier
             .fillMaxWidth()
-            .height(100.dp)
-            .clip(CircleShape) // Corta el efecto de toque a la forma de cápsula
-            .clickable { onClick() }, // <-- NUEVO: Hace que la tarjeta sea apretable
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.background,
-        border = BorderStroke(1.5.dp, primaryColor.copy(alpha = 0.6f))
+            .height(110.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null, // Anulamos el ripple gris para que el rebote sea el rey de la UI
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        border = BorderStroke(0.5.dp, textColor.copy(alpha = 0.05f))
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 24.dp, end = 12.dp),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
                 Text(
                     text = story.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = primaryColor,
                     maxLines = 2,
-                    lineHeight = 18.sp
+                    lineHeight = 20.sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = story.fecha,
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 12.sp,
-                    color = textColor.copy(alpha = 0.5f)
+                    color = textColor.copy(alpha = 0.6f)
                 )
             }
 
@@ -281,9 +520,8 @@ fun StoryCard(
                 model = story.photoUri,
                 contentDescription = null,
                 modifier = Modifier
-                    .width(100.dp)
-                    .height(68.dp)
-                    .clip(RoundedCornerShape(16.dp)),
+                    .width(110.dp)
+                    .fillMaxHeight(),
                 contentScale = ContentScale.Crop
             )
         }
@@ -291,8 +529,35 @@ fun StoryCard(
 }
 
 @Composable
+fun NoResultsView(query: String, textColor: Color) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Sin coincidencia...",
+            style = MaterialTheme.typography.titleMedium,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = textColor.copy(alpha = 0.7f)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Ninguna burbuja flotando coincide con\n\"$query\"",
+            style = MaterialTheme.typography.bodyMedium,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp,
+            color = textColor.copy(alpha = 0.4f)
+        )
+    }
+}
+
+@Composable
 fun EmptyLibraryViewFigma(onAction: () -> Unit, textColor: Color, primaryColor: Color) {
-    // ... (Tu código de EmptyLibraryViewFigma queda exactamente igual) ...
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter

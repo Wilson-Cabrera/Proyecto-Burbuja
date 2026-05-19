@@ -271,9 +271,13 @@ fun MainScreen() {
                     }
                 }
 
+                // --- COMPOSABLE DE GUARDADOS OPTIMIZADO CON ORDENAMIENTO EN NUBE ---
                 composable("guardados") {
                     var listaGuardados by remember { mutableStateOf<List<StoryData>>(emptyList()) }
                     var estaCargando by remember { mutableStateOf(true) }
+
+                    var estaRefrescando by remember { mutableStateOf(false) }
+                    var refreshKey by remember { mutableStateOf(0) }
 
                     val eliminarCuento: (StoryData) -> Unit = { cuento ->
                         val db = FirebaseFirestore.getInstance()
@@ -297,49 +301,70 @@ fun MainScreen() {
                         }
                     }
 
-                    LaunchedEffect(usuarioFirebase) {
+                    LaunchedEffect(usuarioFirebase, refreshKey) {
                         if (usuarioFirebase != null) {
                             val db = FirebaseFirestore.getInstance()
-                            db.collection("stories").whereEqualTo("userId", usuarioFirebase.uid).get().addOnSuccessListener { documentos ->
-                                val historiasFetch = documentos.map { doc ->
-                                    val firebaseTimestamp = doc.getTimestamp("timestamp")
-                                    val formatoFecha = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
-                                    val fechaLegible = firebaseTimestamp?.toDate()?.let { formatoFecha.format(it) } ?: "Reciente"
+                            db.collection("stories")
+                                .whereEqualTo("userId", usuarioFirebase.uid)
+                                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING) // Lógica Pro de ordenamiento
+                                .get()
+                                .addOnSuccessListener { documentos ->
+                                    val historiasFetch = documentos.map { doc ->
+                                        val firebaseTimestamp = doc.getTimestamp("timestamp")
 
-                                    StoryData(
-                                        id = doc.getString("id") ?: doc.id,
-                                        title = doc.getString("title") ?: "Sin título",
-                                        resultStory = doc.getString("resultStory") ?: "",
-                                        photoUri = doc.getString("photoUri") ?: "",
-                                        genero = doc.getString("genero") ?: "",
-                                        tono = doc.getString("tono") ?: "",
-                                        epoca = doc.getString("epoca") ?: "",
-                                        fecha = fechaLegible
-                                    )
+                                        val fechaLegible = firebaseTimestamp?.let {
+                                            val tiempoCuentoMillis = it.toDate().time
+                                            val ahoraMillis = System.currentTimeMillis()
+
+                                            android.text.format.DateUtils.getRelativeTimeSpanString(
+                                                tiempoCuentoMillis,
+                                                ahoraMillis,
+                                                android.text.format.DateUtils.MINUTE_IN_MILLIS
+                                            ).toString()
+                                        } ?: "Reciente"
+
+                                        StoryData(
+                                            id = doc.getString("id") ?: doc.id,
+                                            title = doc.getString("title") ?: "Sin título",
+                                            resultStory = doc.getString("resultStory") ?: "",
+                                            photoUri = doc.getString("photoUri") ?: "",
+                                            genero = doc.getString("genero") ?: "",
+                                            tono = doc.getString("tono") ?: "",
+                                            epoca = doc.getString("epoca") ?: "",
+                                            fecha = fechaLegible
+                                        )
+                                    }
+                                    listaGuardados = historiasFetch // Ya viene ordenada, no necesita .reversed()
+                                    estaCargando = false
+                                    estaRefrescando = false
+                                }.addOnFailureListener {
+                                    estaCargando = false
+                                    estaRefrescando = false
                                 }
-                                listaGuardados = historiasFetch.reversed()
-                                estaCargando = false
-                            }.addOnFailureListener { estaCargando = false }
                         } else {
                             estaCargando = false
+                            estaRefrescando = false
                         }
                     }
 
                     Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
-                        if (estaCargando) {
+                        if (estaCargando && !estaRefrescando) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         } else {
                             GuardadosScreen(
                                 listaHistorias = listaGuardados,
+                                isRefreshing = estaRefrescando,
+                                onRefresh = {
+                                    estaRefrescando = true
+                                    refreshKey++
+                                },
                                 onDeleteStory = eliminarCuento,
                                 onNavigateToCreate = {
                                     navController.navigate("inicio") { popUpTo("inicio") { inclusive = true } }
                                 },
-                                // --- NUEVO: Clic en la tarjeta para leer ---
                                 onStoryClick = { cuento ->
-                                    // Metemos el cuento en la mochila de la navegación y vamos a result_screen
                                     navController.currentBackStackEntry?.savedStateHandle?.set("storyData", cuento)
                                     navController.navigate("result_screen")
                                 }
@@ -369,8 +394,6 @@ fun MainScreen() {
 
                 composable("result_screen") {
                     val uiState = storyViewModel.uiState
-
-                    // --- NUEVO: Rescatamos el cuento si venimos desde GuardadosScreen ---
                     val savedStory = navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData")
 
                     val storyData = savedStory ?: if (uiState is StoryState.Success) {
@@ -380,7 +403,6 @@ fun MainScreen() {
                         )
                     } else { StoryData() }
 
-                    // Si el id no está vacío, sabemos que estamos leyendo un cuento ya guardado de la base de datos
                     val isAlreadySaved = storyData.id.isNotEmpty()
 
                     ResultScreen(
@@ -404,12 +426,9 @@ fun MainScreen() {
                         onLogout = cerrarSesion,
 
                         onRealSaveClick = {
-                            // --- NUEVA LÓGICA DE GUARDADO ---
                             if (isAlreadySaved) {
-                                // Si ya está guardado, solo tiramos un mensajito
                                 Toast.makeText(context, "Esta burbuja ya está a salvo en tu biblioteca.", Toast.LENGTH_SHORT).show()
                             } else {
-                                // Si es un cuento recién creado, lo subimos a la nube
                                 val usuarioActual = auth.currentUser
                                 if (usuarioActual != null && storyData.resultStory.isNotEmpty()) {
                                     Toast.makeText(context, "Guardando en tu biblioteca...", Toast.LENGTH_SHORT).show()
@@ -477,7 +496,8 @@ fun MainScreen() {
     }
 }
 
-// ... (El resto de tus composables OnboardingBurbuja, PantallaInicio, etc., quedan igual abajo) ...
+// --- COMPOSABLES AUXILIARES ---
+
 @Composable
 fun OnboardingBurbuja(onFinish: () -> Unit) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.intro_burbuja))
