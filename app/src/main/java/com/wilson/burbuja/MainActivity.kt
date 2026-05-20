@@ -1,10 +1,14 @@
 package com.wilson.burbuja
 
 import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
+import android.view.animation.AnticipateInterpolator
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,7 +39,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen // API Nativa
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import com.airbnb.lottie.compose.*
@@ -55,8 +61,42 @@ import java.net.URLDecoder
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. Inicializamos el Splash nativo y guardamos la referencia para animarlo
+        val splashScreen = installSplashScreen()
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 2. CONFIGURAMOS EL EXIT ANIMATION CON CÓDIGO PURO (OPCIÓN A)
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            // Buscamos la vista del ícono SVG dentro del contenedor del sistema
+            val iconView = splashScreenView.iconView
+
+            // Animación de Escala X (encoger hacia el centro)
+            val scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f)
+            // Animación de Escala Y (encoger hacia el centro)
+            val scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f)
+            // Animación de Opacidad del logo (Fade out)
+            val alpha = ObjectAnimator.ofFloat(iconView, View.ALPHA, 1f, 0f)
+
+            // Agrupamos las animaciones para que corran juntas
+            val animatorSet = AnimatorSet()
+            animatorSet.playTogether(scaleX, scaleY, alpha)
+
+            // Configuramos la duración (600ms para un comportamiento rápido y tecno)
+            animatorSet.duration = 600L
+
+            // Interpolador Anticipate: hace un leve amague y se encoge con fuerza elástica
+            animatorSet.interpolator = AnticipateInterpolator(1.5f)
+
+            // Cuando la animación de código termina, destruimos la capa del splash de la memoria
+            animatorSet.doOnEnd {
+                splashScreenView.remove()
+            }
+
+            // Arranca la magia
+            animatorSet.start()
+        }
 
         val prefs = getSharedPreferences("BurbujaPrefs", Context.MODE_PRIVATE)
 
@@ -103,6 +143,18 @@ fun MainScreen() {
     val auth = remember { FirebaseAuth.getInstance() }
     val usuarioFirebase = auth.currentUser
 
+    val prefs = remember { context.getSharedPreferences("BurbujaPrefs", Context.MODE_PRIVATE) }
+
+    LaunchedEffect(Unit) {
+        prefs.edit().putLong("last_open_time", System.currentTimeMillis()).apply()
+    }
+
+    fun debeMostrarSplash(): Boolean {
+        val ultimaVez = prefs.getLong("last_open_time", 0L)
+        val ahora = System.currentTimeMillis()
+        return (ahora - ultimaVez) > 1_800_000L
+    }
+
     var tienePermiso by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -112,7 +164,6 @@ fun MainScreen() {
         onResult = { concedido -> tienePermiso = concedido }
     )
 
-    val prefs = remember { context.getSharedPreferences("BurbujaPrefs", Context.MODE_PRIVATE) }
     val nombreGuardado = remember { prefs.getString("nombreUsuario", null) }
 
     LaunchedEffect(usuarioFirebase) {
@@ -123,13 +174,15 @@ fun MainScreen() {
 
     val yaVioOnboarding = remember { prefs.getBoolean("yaVioOnboarding", false) }
 
-    val pantallaDeArranque = remember {
+    val destinoPostSplash = remember {
         when {
             usuarioFirebase != null || nombreGuardado != null -> "inicio"
             yaVioOnboarding -> "login"
             else -> "onboarding"
         }
     }
+
+    val startDest = destinoPostSplash
 
     var isProfileMenuVisible by remember { mutableStateOf(false) }
 
@@ -153,13 +206,12 @@ fun MainScreen() {
 
             if (idToken != null) {
                 val credential = GoogleAuthProvider.getCredential(idToken, null)
-
                 auth.currentUser?.linkWithCredential(credential)?.addOnCompleteListener { linkTask ->
                     if (linkTask.isSuccessful) {
                         val user = linkTask.result?.user
                         nombreUsuario = user?.displayName ?: "Usuario"
                         prefs.edit().putString("nombreUsuario", nombreUsuario).apply()
-                        Toast.makeText(context, "¡Cuenta vinculada! Tu biblioteca ahora es segura.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "¡Cuenta vinculada!", Toast.LENGTH_SHORT).show()
                         navController.navigate("guardados") { popUpTo("inicio") }
                     } else {
                         auth.signInWithCredential(credential).addOnCompleteListener { signInTask ->
@@ -167,10 +219,7 @@ fun MainScreen() {
                                 val user = signInTask.result?.user
                                 nombreUsuario = user?.displayName ?: "Usuario"
                                 prefs.edit().putString("nombreUsuario", nombreUsuario).apply()
-                                Toast.makeText(context, "Sesión recuperada con éxito.", Toast.LENGTH_SHORT).show()
                                 navController.navigate("guardados") { popUpTo("inicio") }
-                            } else {
-                                Toast.makeText(context, "Error al acceder con Google.", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -185,17 +234,10 @@ fun MainScreen() {
         FirebaseAuth.getInstance().signOut()
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
         GoogleSignIn.getClient(context, gso).signOut()
-
-        prefs.edit()
-            .putBoolean("yaVioOnboarding", true)
-            .remove("nombreUsuario")
-            .apply()
-
+        prefs.edit().putBoolean("yaVioOnboarding", true).remove("nombreUsuario").apply()
         nombreUsuario = "Usuario"
         isProfileMenuVisible = false
-        navController.navigate("login") {
-            popUpTo(navController.graph.id) { inclusive = true }
-        }
+        navController.navigate("login") { popUpTo(navController.graph.id) { inclusive = true } }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -214,54 +256,32 @@ fun MainScreen() {
         ) { paddingValues ->
             NavHost(
                 navController = navController,
-                startDestination = pantallaDeArranque,
+                startDestination = startDest,
                 modifier = Modifier.fillMaxSize()
             ) {
+
                 composable("onboarding") {
                     OnboardingBurbuja(onFinish = {
                         navController.navigate("welcome") { popUpTo("onboarding") { inclusive = true } }
                     })
                 }
 
-                composable(
-                    route = "welcome",
-                    enterTransition = { fadeIn(animationSpec = tween(1200)) },
-                    exitTransition = { fadeOut(animationSpec = tween(1000)) }
-                ) {
-                    WelcomeScreen(
-                        onNavigateToLogin = {
-                            prefs.edit().putBoolean("yaVioOnboarding", true).apply()
-                            navController.navigate("login") { popUpTo("welcome") { inclusive = true } }
-                        }
-                    )
+                composable("welcome", enterTransition = { fadeIn(tween(1200)) }, exitTransition = { fadeOut(tween(1000)) }) {
+                    WelcomeScreen(onNavigateToLogin = {
+                        prefs.edit().putBoolean("yaVioOnboarding", true).apply()
+                        navController.navigate("login") { popUpTo("welcome") { inclusive = true } }
+                    })
                 }
 
-                composable(
-                    route = "login",
-                    enterTransition = {
-                        if (initialState.destination.route == "welcome") {
-                            fadeIn(animationSpec = tween(1500)) +
-                                    scaleIn(initialScale = 0.95f, animationSpec = tween(1500))
-                        } else {
-                            fadeIn(animationSpec = tween(800))
-                        }
-                    }
-                ) {
-                    LoginScreen(
-                        onLoginSuccess = { nombre ->
-                            nombreUsuario = nombre // <-- ¡Corregido el error de tipeo acá!
-                            prefs.edit()
-                                .putBoolean("yaVioOnboarding", true)
-                                .putString("nombreUsuario", nombre)
-                                .apply()
-                            navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
-                        },
-                        onNavigateToRegister = {}
-                    )
+                composable("login", enterTransition = { fadeIn(tween(800)) }) {
+                    LoginScreen(onLoginSuccess = { nombre ->
+                        nombreUsuario = nombre
+                        prefs.edit().putBoolean("yaVioOnboarding", true).putString("nombreUsuario", nombre).apply()
+                        navController.navigate("inicio") { popUpTo("login") { inclusive = true } }
+                    }, onNavigateToRegister = {})
                 }
 
                 composable("inicio") {
-                    // Usamos solo el padding superior del Scaffold para que la cámara no se tape con la hora del celular
                     Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
                         PantallaInicio(onAbrirCamara = {
                             if (tienePermiso) navController.navigate("camara")
@@ -280,20 +300,13 @@ fun MainScreen() {
                         val db = FirebaseFirestore.getInstance()
                         val storage = FirebaseStorage.getInstance()
                         val usuarioActual = auth.currentUser
-
                         if (usuarioActual != null && cuento.id.isNotEmpty()) {
                             db.collection("stories").document(cuento.id).delete().addOnSuccessListener {
                                 if (cuento.photoUri.contains("firebasestorage")) {
-                                    try {
-                                        storage.getReferenceFromUrl(cuento.photoUri).delete()
-                                    } catch (e: Exception) {
-                                        println("Burbuja Debug: URL de imagen no válida para Storage.")
-                                    }
+                                    try { storage.getReferenceFromUrl(cuento.photoUri).delete() } catch (e: Exception) {}
                                 }
                                 listaGuardados = listaGuardados.filter { it.id != cuento.id }
                                 Toast.makeText(context, "Burbuja eliminada", Toast.LENGTH_SHORT).show()
-                            }.addOnFailureListener { e ->
-                                Toast.makeText(context, "Error al eliminar: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -306,18 +319,7 @@ fun MainScreen() {
                                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                                 .get()
                                 .addOnSuccessListener { documentos ->
-                                    val historiasFetch = documentos.map { doc ->
-                                        val firebaseTimestamp = doc.getTimestamp("timestamp")
-                                        val fechaLegible = firebaseTimestamp?.let {
-                                            val tiempoCuentoMillis = it.toDate().time
-                                            val ahoraMillis = System.currentTimeMillis()
-                                            android.text.format.DateUtils.getRelativeTimeSpanString(
-                                                tiempoCuentoMillis,
-                                                ahoraMillis,
-                                                android.text.format.DateUtils.MINUTE_IN_MILLIS
-                                            ).toString()
-                                        } ?: "Reciente"
-
+                                    listaGuardados = documentos.map { doc ->
                                         StoryData(
                                             id = doc.getString("id") ?: doc.id,
                                             title = doc.getString("title") ?: "Sin título",
@@ -325,25 +327,15 @@ fun MainScreen() {
                                             photoUri = doc.getString("photoUri") ?: "",
                                             genero = doc.getString("genero") ?: "",
                                             tono = doc.getString("tono") ?: "",
-                                            epoca = doc.getString("epoca") ?: "",
-                                            fecha = fechaLegible
+                                            epoca = doc.getString("epoca") ?: ""
                                         )
                                     }
-                                    listaGuardados = historiasFetch
                                     estaCargando = false
                                     estaRefrescando = false
-                                }.addOnFailureListener {
-                                    estaCargando = false
-                                    estaRefrescando = false
-                                }
-                        } else {
-                            estaCargando = false
-                            estaRefrescando = false
+                                }.addOnFailureListener { estaCargando = false }
                         }
                     }
 
-                    // Usamos solo el padding superior del Scaffold.
-                    // El inferior lo dejamos en cero para que la lista pase libremente detrás de tu NavBar.
                     Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
                         if (estaCargando && !estaRefrescando) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -353,14 +345,9 @@ fun MainScreen() {
                             GuardadosScreen(
                                 listaHistorias = listaGuardados,
                                 isRefreshing = estaRefrescando,
-                                onRefresh = {
-                                    estaRefrescando = true
-                                    refreshKey++
-                                },
+                                onRefresh = { estaRefrescando = true; refreshKey++ },
                                 onDeleteStory = eliminarCuento,
-                                onNavigateToCreate = {
-                                    navController.navigate("inicio") { popUpTo("inicio") { inclusive = true } }
-                                },
+                                onNavigateToCreate = { navController.navigate("inicio") { popUpTo("inicio") { inclusive = true } } },
                                 onStoryClick = { cuento ->
                                     navController.currentBackStackEntry?.savedStateHandle?.set("storyData", cuento)
                                     navController.navigate("result_screen")
@@ -393,20 +380,12 @@ fun MainScreen() {
                     val uiState = storyViewModel.uiState
                     val savedStory = navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData")
                     val haptic = LocalHapticFeedback.current
-
                     val storyData = savedStory ?: if (uiState is StoryState.Success) {
-                        StoryData(
-                            title = uiState.title,
-                            resultStory = uiState.story
-                        )
+                        StoryData(title = uiState.title, resultStory = uiState.story)
                     } else { StoryData() }
 
-                    var seGuardoEnEstaSesion by remember(storyData.id) {
-                        mutableStateOf(storyData.id.isNotEmpty())
-                    }
-                    var idDinamico by remember(storyData.id) {
-                        mutableStateOf(storyData.id)
-                    }
+                    var seGuardoEnEstaSesion by remember(storyData.id) { mutableStateOf(storyData.id.isNotEmpty()) }
+                    var idDinamico by remember(storyData.id) { mutableStateOf(storyData.id) }
 
                     ResultScreen(
                         storyData = storyData,
@@ -415,7 +394,6 @@ fun MainScreen() {
                         audioAmplitude = storyViewModel.audioAmplitude,
                         isAnonymous = FirebaseAuth.getInstance().currentUser?.isAnonymous == true,
                         isSaved = seGuardoEnEstaSesion,
-
                         onPlayAudioClick = {
                             val idUnico = storyData.resultStory.hashCode().toString()
                             if (storyViewModel.audioFile != null) {
@@ -427,103 +405,33 @@ fun MainScreen() {
                         onStopAudioClick = { storyViewModel.detenerAudio() },
                         onBackClick = { storyViewModel.detenerAudio(); navController.popBackStack() },
                         onGenerateAnother = { storyViewModel.detenerAudio(); navController.popBackStack() },
-
-                        onNavigateToLibrary = {
-                            storyViewModel.detenerAudio()
-                            navController.navigate("guardados") { popUpTo("inicio") }
-                        },
-
+                        onNavigateToLibrary = { storyViewModel.detenerAudio(); navController.navigate("guardados") { popUpTo("inicio") } },
                         onRealSaveClick = {
                             val usuarioActual = auth.currentUser
                             if (usuarioActual != null && storyData.resultStory.isNotEmpty()) {
-
                                 val db = FirebaseFirestore.getInstance()
                                 val userId = usuarioActual.uid
-                                val esImagenRemota = storyData.photoUri.startsWith("http")
-
                                 if (!seGuardoEnEstaSesion) {
                                     seGuardoEnEstaSesion = true
-
-                                    if (idDinamico.isEmpty()) {
-                                        idDinamico = db.collection("stories").document().id
-                                    }
-
+                                    if (idDinamico.isEmpty()) idDinamico = db.collection("stories").document().id
                                     val storyRef = db.collection("stories").document(idDinamico)
-
-                                    if (esImagenRemota) {
-                                        val mapaCuento = hashMapOf(
-                                            "id" to idDinamico,
-                                            "userId" to userId,
-                                            "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                                            "resultStory" to storyData.resultStory,
-                                            "photoUri" to storyData.photoUri,
-                                            "genero" to storyData.genero,
-                                            "tono" to storyData.tono,
-                                            "epoca" to storyData.epoca,
-                                            "timestamp" to com.google.firebase.Timestamp.now()
-                                        )
-                                        storyRef.set(mapaCuento).addOnSuccessListener {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        }.addOnFailureListener {
-                                            seGuardoEnEstaSesion = false
-                                            Toast.makeText(context, "Error de conexión al guardar", Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        val storageRef = FirebaseStorage.getInstance().reference.child("stories/$userId/$idDinamico.jpg")
-                                        val fotoUriLocal = Uri.parse(storyData.photoUri)
-
-                                        storageRef.putFile(fotoUriLocal).addOnSuccessListener {
-                                            storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-                                                val mapaCuento = hashMapOf(
-                                                    "id" to idDinamico,
-                                                    "userId" to userId,
-                                                    "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                                                    "resultStory" to storyData.resultStory,
-                                                    "photoUri" to downloadUrl.toString(),
-                                                    "genero" to storyData.genero,
-                                                    "tono" to storyData.tono,
-                                                    "epoca" to storyData.epoca,
-                                                    "timestamp" to com.google.firebase.Timestamp.now()
-                                                )
-                                                storyRef.set(mapaCuento).addOnSuccessListener {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                }.addOnFailureListener {
-                                                    seGuardoEnEstaSesion = false
-                                                }
-                                            }
-                                        }.addOnFailureListener {
-                                            seGuardoEnEstaSesion = false
-                                            Toast.makeText(context, "No se pudo sincronizar la imagen", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-
+                                    val mapaCuento = hashMapOf(
+                                        "id" to idDinamico, "userId" to userId,
+                                        "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
+                                        "resultStory" to storyData.resultStory, "photoUri" to storyData.photoUri,
+                                        "timestamp" to com.google.firebase.Timestamp.now()
+                                    )
+                                    storyRef.set(mapaCuento).addOnSuccessListener { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
                                 } else {
                                     seGuardoEnEstaSesion = false
-
-                                    if (idDinamico.isNotEmpty()) {
-                                        db.collection("stories").document(idDinamico).delete().addOnSuccessListener {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        }.addOnFailureListener {
-                                            seGuardoEnEstaSesion = true
-                                            Toast.makeText(context, "Error al remover de la biblioteca", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
+                                    db.collection("stories").document(idDinamico).delete().addOnSuccessListener { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
                                 }
-                            } else {
-                                Toast.makeText(context, "No hay un usuario activo o el relato está vacío.", Toast.LENGTH_SHORT).show()
                             }
                         },
-
                         onUpgradeAccountClick = {
-                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                .requestIdToken(context.getString(R.string.default_web_client_id))
-                                .requestEmail()
-                                .build()
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestIdToken(context.getString(R.string.default_web_client_id)).requestEmail().build()
                             val googleSignInClient = GoogleSignIn.getClient(context, gso)
-
-                            googleSignInClient.signOut().addOnCompleteListener {
-                                upgradeAccountLauncher.launch(googleSignInClient.signInIntent)
-                            }
+                            googleSignInClient.signOut().addOnCompleteListener { upgradeAccountLauncher.launch(googleSignInClient.signInIntent) }
                         }
                     )
                 }
@@ -536,24 +444,6 @@ fun MainScreen() {
                 ProfileMenuCard(nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = cerrarSesion)
             }
         }
-    }
-}
-
-// --- COMPOSABLES AUXILIARES ---
-
-@Composable
-fun OnboardingBurbuja(onFinish: () -> Unit) {
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.intro_burbuja))
-    val progress by animateLottieCompositionAsState(composition = composition, iterations = 1)
-    LaunchedEffect(progress) { if (progress == 1f) onFinish() }
-
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37)), contentAlignment = Alignment.Center) {
-        LottieAnimation(
-            composition = composition,
-            progress = { progress },
-            modifier = Modifier.fillMaxSize(),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-        )
     }
 }
 
@@ -580,7 +470,6 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
 fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
     val isDarkTheme = LocalThemeState.current
     val toggleTheme = LocalThemeToggle.current
-    // <-- ¡Corregido el error de MaterialTheme.surface a MaterialTheme.colorScheme.surface acá!
     Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -602,5 +491,16 @@ fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text:
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(text = text, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun OnboardingBurbuja(onFinish: () -> Unit) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.intro_burbuja))
+    val progress by animateLottieCompositionAsState(composition = composition, iterations = 1)
+    LaunchedEffect(progress) { if (progress == 1f) onFinish() }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1F2A37)), contentAlignment = Alignment.Center) {
+        LottieAnimation(composition = composition, progress = { progress }, modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
     }
 }

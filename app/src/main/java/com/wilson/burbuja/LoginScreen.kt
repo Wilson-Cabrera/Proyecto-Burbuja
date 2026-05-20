@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -69,7 +70,7 @@ fun LoginScreen(
             auth.signInWithCredential(credential).addOnCompleteListener { taskAuth ->
                 if (taskAuth.isSuccessful) {
                     scope.launch {
-                        val nombre = account.displayName ?: "Wilson"
+                        val nombre = account.displayName ?: "Usuario"
                         onLoginSuccess(nombre)
                     }
                 } else { isLoading = false }
@@ -88,7 +89,6 @@ fun LoginScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        // DINÁMICO: El fondo cambia de Navy profundo a Blanco Técnico automáticamente
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
@@ -105,21 +105,31 @@ fun LoginScreen(
                     }
                 }
         ) {
-            // DINÁMICO: Le pasamos el color primario (Cyan o Violeta) al Canvas
             CampoDeEnfoque(color = MaterialTheme.colorScheme.primary, touchPos = touchPos, isTouching = isTouching, pulse = pulse)
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .safeDrawingPadding()
-                    .padding(horizontal = 30.dp, vertical = 40.dp),
+                    // AJUSTE: Reducimos el padding superior de 40 a 10
+                    .padding(start = 30.dp, end = 30.dp, top = 10.dp, bottom = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(20.dp))
+                // AJUSTE: Reducimos este spacer de 20 a 5 para que el logo suba más
+                Spacer(modifier = Modifier.height(5.dp))
+
+                // --- ISOTIPO DE MARCA ---
+                Image(
+                    painter = painterResource(id = R.drawable.ic_simbolo),
+                    contentDescription = "Burbuja AI",
+                    modifier = Modifier
+                        .size(60.dp)
+                        .padding(bottom = 12.dp), // Un poco menos de espacio abajo del logo
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                )
 
                 Text(
                     text = "BIENVENIDO",
-                    // DINÁMICO: Texto que contrasta con el fondo (Blanco en dark, Navy en light)
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 38.sp,
                     fontWeight = FontWeight(950),
@@ -127,11 +137,10 @@ fun LoginScreen(
                     fontFamily = InterFont
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp)) // Menos espacio entre título y slogan
 
                 Text(
                     text = "Lo que ves puede ser una historia",
-                    // DINÁMICO: Mismo texto, pero con opacidad
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
@@ -142,7 +151,6 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (isLoading) {
-                    // DINÁMICO: Color primario para el loader
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 32.dp))
                 } else {
                     // BOTÓN GOOGLE
@@ -153,7 +161,6 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
-                        // DINÁMICO: Usamos el color Surface (Gris oscuro en dark, Gris clarito en light)
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
@@ -165,13 +172,11 @@ fun LoginScreen(
                                 painter = painterResource(id = R.drawable.ic_google),
                                 contentDescription = "Google Logo",
                                 modifier = Modifier.size(20.dp),
-                                // DINÁMICO: Color de texto/icono sobre la superficie
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Entrar con Google",
-                                // DINÁMICO: Color de texto/icono sobre la superficie
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
@@ -193,12 +198,10 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(65.dp),
                         shape = RoundedCornerShape(32.dp),
-                        // DINÁMICO: Borde con el color primario actual
                         border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Text(
                             text = "Crear mi historia",
-                            // DINÁMICO: Texto adaptado al fondo
                             color = MaterialTheme.colorScheme.onBackground,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = InterFont

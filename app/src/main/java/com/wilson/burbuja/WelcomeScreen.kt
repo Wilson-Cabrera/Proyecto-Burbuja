@@ -3,6 +3,7 @@ package com.wilson.burbuja
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -50,26 +53,28 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
     var indiceActual by remember { mutableIntStateOf(0) }
     var textoVisible by remember { mutableStateOf(false) }
     var mostrarBoton by remember { mutableStateOf(false) }
+    var mostrarLogo by remember { mutableStateOf(false) } // Controlamos el logo
 
     // --- MOTOR CINEMATOGRÁFICO AJUSTADO ---
     LaunchedEffect(Unit) {
-        delay(800) // Pausa inicial estética
+        delay(400) // Aparece el logo un poquito antes que el primer texto
+        mostrarLogo = true
+        delay(400) // Pausa inicial estética para el texto
 
         while (true) {
             textoVisible = true
 
             // ACTIVACIÓN TEMPRANA DEL BOTÓN
-            // Si es la primera frase, esperamos solo 3 segundos para revelar el botón
             if (indiceActual == 0 && !mostrarBoton) {
                 delay(3000)
                 mostrarBoton = true
-                delay(2000) // Completamos los 5 seg de lectura de la primera frase
+                delay(2000)
             } else {
-                delay(5000) // Duración normal para el resto de las frases
+                delay(5000)
             }
 
             textoVisible = false
-            delay(1500) // Transición de salida
+            delay(1500)
 
             indiceActual = (indiceActual + 1) % frases.size
         }
@@ -78,30 +83,54 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1F2A37)),
-        contentAlignment = Alignment.Center
+            .background(Color(0xFF1F2A37))
     ) {
-        // --- TEXTO CENTRAL ---
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth(0.85f)
+        // --- LOGO (ISOTIPO) EN LA PARTE SUPERIOR ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 90.dp), // Separación de la barra de estado
+            contentAlignment = Alignment.Center
         ) {
             AnimatedVisibility(
-                visible = textoVisible,
-                enter = fadeIn(animationSpec = tween(1200)),
-                exit = fadeOut(animationSpec = tween(1000))
+                visible = mostrarLogo,
+                enter = fadeIn(animationSpec = tween(1500))
             ) {
-                Text(
-                    text = frases[indiceActual],
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontFamily = FontFamily.SansSerif,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 32.sp,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.fillMaxWidth()
+                Image(
+                    painter = painterResource(id = R.drawable.ic_splash_logo),
+                    contentDescription = "Burbuja AI",
+                    modifier = Modifier.size(200.dp), // Tamaño sutil para no robar protagonismo
+                    contentScale = ContentScale.Fit
                 )
+            }
+        }
+
+        // --- TEXTO CENTRAL ---
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(0.85f)
+            ) {
+                AnimatedVisibility(
+                    visible = textoVisible,
+                    enter = fadeIn(animationSpec = tween(1200)),
+                    exit = fadeOut(animationSpec = tween(1000))
+                ) {
+                    Text(
+                        text = frases[indiceActual],
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 32.sp,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
 
@@ -115,7 +144,6 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
             AnimatedVisibility(
                 visible = mostrarBoton,
                 enter = fadeIn(animationSpec = tween(1500)) + slideInVertically { it / 3 }
-                // No le ponemos exit para que el botón se quede fijo una vez que aparece
             ) {
                 OutlinedButton(
                     onClick = onNavigateToLogin,
