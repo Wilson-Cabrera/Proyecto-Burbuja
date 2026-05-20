@@ -69,32 +69,20 @@ class MainActivity : ComponentActivity() {
 
         // 2. CONFIGURAMOS EL EXIT ANIMATION CON CÓDIGO PURO (OPCIÓN A)
         splashScreen.setOnExitAnimationListener { splashScreenView ->
-            // Buscamos la vista del ícono SVG dentro del contenedor del sistema
             val iconView = splashScreenView.iconView
 
-            // Animación de Escala X (encoger hacia el centro)
             val scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f)
-            // Animación de Escala Y (encoger hacia el centro)
             val scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f)
-            // Animación de Opacidad del logo (Fade out)
             val alpha = ObjectAnimator.ofFloat(iconView, View.ALPHA, 1f, 0f)
 
-            // Agrupamos las animaciones para que corran juntas
             val animatorSet = AnimatorSet()
             animatorSet.playTogether(scaleX, scaleY, alpha)
-
-            // Configuramos la duración (600ms para un comportamiento rápido y tecno)
             animatorSet.duration = 600L
-
-            // Interpolador Anticipate: hace un leve amague y se encoge con fuerza elástica
             animatorSet.interpolator = AnticipateInterpolator(1.5f)
 
-            // Cuando la animación de código termina, destruimos la capa del splash de la memoria
             animatorSet.doOnEnd {
                 splashScreenView.remove()
             }
-
-            // Arranca la magia
             animatorSet.start()
         }
 
@@ -238,6 +226,16 @@ fun MainScreen() {
         nombreUsuario = "Usuario"
         isProfileMenuVisible = false
         navController.navigate("login") { popUpTo(navController.graph.id) { inclusive = true } }
+    }
+
+    // Función para el botón general del menú de perfil (Compartir la App)
+    val compartirApp = {
+        val sendIntent = android.content.Intent().apply {
+            action = android.content.Intent.ACTION_SEND
+            putExtra(android.content.Intent.EXTRA_TEXT, "¡Mirá Burbuja AI! Redefiní tu entorno y descubrí el relato oculto en cada imagen.")
+            type = "text/plain"
+        }
+        context.startActivity(android.content.Intent.createChooser(sendIntent, "Compartir Burbuja AI con..."))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -432,6 +430,10 @@ fun MainScreen() {
                             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestIdToken(context.getString(R.string.default_web_client_id)).requestEmail().build()
                             val googleSignInClient = GoogleSignIn.getClient(context, gso)
                             googleSignInClient.signOut().addOnCompleteListener { upgradeAccountLauncher.launch(googleSignInClient.signInIntent) }
+                        },
+                        // CAMBIO CLAVE: Conectamos el botón de compartir de la pantalla de resultados con el generador de imágenes
+                        onShareClick = {
+                            ShareHelper.shareStoryCard(context, storyData)
                         }
                     )
                 }
@@ -441,7 +443,7 @@ fun MainScreen() {
         if (isProfileMenuVisible) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable { isProfileMenuVisible = false })
             Box(modifier = Modifier.fillMaxSize().padding(bottom = 95.dp, end = 20.dp), contentAlignment = Alignment.BottomEnd) {
-                ProfileMenuCard(nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = cerrarSesion)
+                ProfileMenuCard(nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = cerrarSesion, onShareApp = compartirApp)
             }
         }
     }
@@ -467,7 +469,7 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
 }
 
 @Composable
-fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
+fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit, onShareApp: () -> Unit) {
     val isDarkTheme = LocalThemeState.current
     val toggleTheme = LocalThemeToggle.current
     Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -478,7 +480,8 @@ fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> 
             }
             Spacer(modifier = Modifier.height(16.dp))
             ProfileMenuItem(icon = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.NightsStay, text = if (isDarkTheme) "Modo claro" else "Modo oscuro", onClick = toggleTheme)
-            ProfileMenuItem(Icons.Default.Share, "Compartir") {}
+            // CAMBIO: Vinculamos la acción de compartir la app acá
+            ProfileMenuItem(Icons.Default.Share, "Compartir", onClick = onShareApp)
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             ProfileMenuItem(Icons.AutoMirrored.Filled.ExitToApp, "Cerrar sesión", onLogout)
         }

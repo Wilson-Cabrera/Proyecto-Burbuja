@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share // IMPORTADO PARA EL BOTÓN
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,7 +56,8 @@ fun ResultScreen(
     onGenerateAnother: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onRealSaveClick: () -> Unit,
-    onUpgradeAccountClick: () -> Unit
+    onUpgradeAccountClick: () -> Unit,
+    onShareClick: () -> Unit // --- 1. AGREGADO ACÁ ---
 ) {
     var showLoginDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -229,6 +231,7 @@ fun ResultScreen(
                         onRealSaveClick()
                     }
                 },
+                onShareClick = onShareClick, // --- 2. PASADO AL VISUALIZADOR ---
                 onClick = { if (!isAudioLoading) { if (isPlaying) onStopAudioClick() else onPlayAudioClick() } }
             )
         }
@@ -252,6 +255,7 @@ fun UniverseDomeVisualizer(
     isSaved: Boolean,
     onBackClick: () -> Unit,
     onSaveClick: () -> Unit,
+    onShareClick: () -> Unit, // --- 3. PARAMETRO RECIBIDO ---
     onClick: () -> Unit
 ) {
     val colorPrimario = MaterialTheme.colorScheme.primary
@@ -345,21 +349,43 @@ fun UniverseDomeVisualizer(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = onSurfaceColor)
         }
 
-        IconButton(
-            onClick = onSaveClick,
+        // --- 4. FILA DE BOTONES SUPERIOR DERECHA (COMPARTIR Y GUARDAR COEXISTIENDO) ---
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(end = 16.dp, top = 16.dp)
-                .size(44.dp)
-                .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
-                .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+                .padding(end = 16.dp, top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                contentDescription = "Guardar",
-                tint = if (isSaved) colorPrimario else onSurfaceColor
-            )
+            // NUEVO BOTÓN DE COMPARTIR
+            IconButton(
+                onClick = onShareClick,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                    .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Compartir",
+                    tint = onSurfaceColor
+                )
+            }
+
+            // BOTÓN DE GUARDAR
+            IconButton(
+                onClick = onSaveClick,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                    .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    contentDescription = "Guardar",
+                    tint = if (isSaved) colorPrimario else onSurfaceColor
+                )
+            }
         }
 
         Box(
