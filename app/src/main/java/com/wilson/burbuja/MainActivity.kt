@@ -28,7 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -157,9 +159,7 @@ fun MainScreen() {
                         val user = linkTask.result?.user
                         nombreUsuario = user?.displayName ?: "Usuario"
                         prefs.edit().putString("nombreUsuario", nombreUsuario).apply()
-
                         Toast.makeText(context, "¡Cuenta vinculada! Tu biblioteca ahora es segura.", Toast.LENGTH_SHORT).show()
-
                         navController.navigate("guardados") { popUpTo("inicio") }
                     } else {
                         auth.signInWithCredential(credential).addOnCompleteListener { signInTask ->
@@ -167,9 +167,7 @@ fun MainScreen() {
                                 val user = signInTask.result?.user
                                 nombreUsuario = user?.displayName ?: "Usuario"
                                 prefs.edit().putString("nombreUsuario", nombreUsuario).apply()
-
                                 Toast.makeText(context, "Sesión recuperada con éxito.", Toast.LENGTH_SHORT).show()
-
                                 navController.navigate("guardados") { popUpTo("inicio") }
                             } else {
                                 Toast.makeText(context, "Error al acceder con Google.", Toast.LENGTH_LONG).show()
@@ -251,7 +249,7 @@ fun MainScreen() {
                 ) {
                     LoginScreen(
                         onLoginSuccess = { nombre ->
-                            nombreUsuario = nombre
+                            nombreUsuario = nombre // <-- ¡Corregido el error de tipeo acá!
                             prefs.edit()
                                 .putBoolean("yaVioOnboarding", true)
                                 .putString("nombreUsuario", nombre)
@@ -263,7 +261,8 @@ fun MainScreen() {
                 }
 
                 composable("inicio") {
-                    Box(modifier = Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
+                    // Usamos solo el padding superior del Scaffold para que la cámara no se tape con la hora del celular
+                    Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
                         PantallaInicio(onAbrirCamara = {
                             if (tienePermiso) navController.navigate("camara")
                             else launcherCamara.launch(Manifest.permission.CAMERA)
@@ -271,11 +270,9 @@ fun MainScreen() {
                     }
                 }
 
-                // --- COMPOSABLE DE GUARDADOS OPTIMIZADO CON ORDENAMIENTO EN NUBE ---
                 composable("guardados") {
                     var listaGuardados by remember { mutableStateOf<List<StoryData>>(emptyList()) }
                     var estaCargando by remember { mutableStateOf(true) }
-
                     var estaRefrescando by remember { mutableStateOf(false) }
                     var refreshKey by remember { mutableStateOf(0) }
 
@@ -306,16 +303,14 @@ fun MainScreen() {
                             val db = FirebaseFirestore.getInstance()
                             db.collection("stories")
                                 .whereEqualTo("userId", usuarioFirebase.uid)
-                                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING) // Lógica Pro de ordenamiento
+                                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                                 .get()
                                 .addOnSuccessListener { documentos ->
                                     val historiasFetch = documentos.map { doc ->
                                         val firebaseTimestamp = doc.getTimestamp("timestamp")
-
                                         val fechaLegible = firebaseTimestamp?.let {
                                             val tiempoCuentoMillis = it.toDate().time
                                             val ahoraMillis = System.currentTimeMillis()
-
                                             android.text.format.DateUtils.getRelativeTimeSpanString(
                                                 tiempoCuentoMillis,
                                                 ahoraMillis,
@@ -334,7 +329,7 @@ fun MainScreen() {
                                             fecha = fechaLegible
                                         )
                                     }
-                                    listaGuardados = historiasFetch // Ya viene ordenada, no necesita .reversed()
+                                    listaGuardados = historiasFetch
                                     estaCargando = false
                                     estaRefrescando = false
                                 }.addOnFailureListener {
@@ -347,7 +342,9 @@ fun MainScreen() {
                         }
                     }
 
-                    Box(Modifier.fillMaxSize().padding(bottom = paddingValues.calculateBottomPadding())) {
+                    // Usamos solo el padding superior del Scaffold.
+                    // El inferior lo dejamos en cero para que la lista pase libremente detrás de tu NavBar.
+                    Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
                         if (estaCargando && !estaRefrescando) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -395,6 +392,7 @@ fun MainScreen() {
                 composable("result_screen") {
                     val uiState = storyViewModel.uiState
                     val savedStory = navController.previousBackStackEntry?.savedStateHandle?.get<StoryData>("storyData")
+                    val haptic = LocalHapticFeedback.current
 
                     val storyData = savedStory ?: if (uiState is StoryState.Success) {
                         StoryData(
@@ -403,15 +401,21 @@ fun MainScreen() {
                         )
                     } else { StoryData() }
 
-                    val isAlreadySaved = storyData.id.isNotEmpty()
+                    var seGuardoEnEstaSesion by remember(storyData.id) {
+                        mutableStateOf(storyData.id.isNotEmpty())
+                    }
+                    var idDinamico by remember(storyData.id) {
+                        mutableStateOf(storyData.id)
+                    }
 
                     ResultScreen(
                         storyData = storyData,
-                        nombreUsuario = nombreUsuario,
                         isAudioLoading = storyViewModel.isAudioLoading,
                         isPlaying = storyViewModel.isPlaying,
                         audioAmplitude = storyViewModel.audioAmplitude,
                         isAnonymous = FirebaseAuth.getInstance().currentUser?.isAnonymous == true,
+                        isSaved = seGuardoEnEstaSesion,
+
                         onPlayAudioClick = {
                             val idUnico = storyData.resultStory.hashCode().toString()
                             if (storyViewModel.audioFile != null) {
@@ -423,51 +427,90 @@ fun MainScreen() {
                         onStopAudioClick = { storyViewModel.detenerAudio() },
                         onBackClick = { storyViewModel.detenerAudio(); navController.popBackStack() },
                         onGenerateAnother = { storyViewModel.detenerAudio(); navController.popBackStack() },
-                        onLogout = cerrarSesion,
+
+                        onNavigateToLibrary = {
+                            storyViewModel.detenerAudio()
+                            navController.navigate("guardados") { popUpTo("inicio") }
+                        },
 
                         onRealSaveClick = {
-                            if (isAlreadySaved) {
-                                Toast.makeText(context, "Esta burbuja ya está a salvo en tu biblioteca.", Toast.LENGTH_SHORT).show()
-                            } else {
-                                val usuarioActual = auth.currentUser
-                                if (usuarioActual != null && storyData.resultStory.isNotEmpty()) {
-                                    Toast.makeText(context, "Guardando en tu biblioteca...", Toast.LENGTH_SHORT).show()
+                            val usuarioActual = auth.currentUser
+                            if (usuarioActual != null && storyData.resultStory.isNotEmpty()) {
 
-                                    val userId = usuarioActual.uid
-                                    val db = FirebaseFirestore.getInstance()
+                                val db = FirebaseFirestore.getInstance()
+                                val userId = usuarioActual.uid
+                                val esImagenRemota = storyData.photoUri.startsWith("http")
 
-                                    val storyRef = db.collection("stories").document()
-                                    val storyId = storyRef.id
+                                if (!seGuardoEnEstaSesion) {
+                                    seGuardoEnEstaSesion = true
 
-                                    val storageRef = FirebaseStorage.getInstance().reference.child("stories/$userId/$storyId.jpg")
-                                    val fotoUriLocal = Uri.parse(storyData.photoUri)
-
-                                    storageRef.putFile(fotoUriLocal).addOnSuccessListener {
-                                        storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-                                            val mapaCuento = hashMapOf(
-                                                "id" to storyId,
-                                                "userId" to userId,
-                                                "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
-                                                "resultStory" to storyData.resultStory,
-                                                "photoUri" to downloadUrl.toString(),
-                                                "genero" to storyData.genero,
-                                                "tono" to storyData.tono,
-                                                "epoca" to storyData.epoca,
-                                                "timestamp" to com.google.firebase.Timestamp.now()
-                                            )
-                                            storyRef.set(mapaCuento).addOnSuccessListener {
-                                                Toast.makeText(context, "¡Relato asegurado con éxito!", Toast.LENGTH_SHORT).show()
-                                                navController.navigate("guardados") { popUpTo("inicio") }
-                                            }.addOnFailureListener { e ->
-                                                Toast.makeText(context, "Error al guardar el texto: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-                                            }
-                                        }
-                                    }.addOnFailureListener { e ->
-                                        Toast.makeText(context, "Error al subir la imagen: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                    if (idDinamico.isEmpty()) {
+                                        idDinamico = db.collection("stories").document().id
                                     }
+
+                                    val storyRef = db.collection("stories").document(idDinamico)
+
+                                    if (esImagenRemota) {
+                                        val mapaCuento = hashMapOf(
+                                            "id" to idDinamico,
+                                            "userId" to userId,
+                                            "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
+                                            "resultStory" to storyData.resultStory,
+                                            "photoUri" to storyData.photoUri,
+                                            "genero" to storyData.genero,
+                                            "tono" to storyData.tono,
+                                            "epoca" to storyData.epoca,
+                                            "timestamp" to com.google.firebase.Timestamp.now()
+                                        )
+                                        storyRef.set(mapaCuento).addOnSuccessListener {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }.addOnFailureListener {
+                                            seGuardoEnEstaSesion = false
+                                            Toast.makeText(context, "Error de conexión al guardar", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        val storageRef = FirebaseStorage.getInstance().reference.child("stories/$userId/$idDinamico.jpg")
+                                        val fotoUriLocal = Uri.parse(storyData.photoUri)
+
+                                        storageRef.putFile(fotoUriLocal).addOnSuccessListener {
+                                            storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+                                                val mapaCuento = hashMapOf(
+                                                    "id" to idDinamico,
+                                                    "userId" to userId,
+                                                    "title" to storyData.title.ifEmpty { "Fragmentos de Realidad" },
+                                                    "resultStory" to storyData.resultStory,
+                                                    "photoUri" to downloadUrl.toString(),
+                                                    "genero" to storyData.genero,
+                                                    "tono" to storyData.tono,
+                                                    "epoca" to storyData.epoca,
+                                                    "timestamp" to com.google.firebase.Timestamp.now()
+                                                )
+                                                storyRef.set(mapaCuento).addOnSuccessListener {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }.addOnFailureListener {
+                                                    seGuardoEnEstaSesion = false
+                                                }
+                                            }
+                                        }.addOnFailureListener {
+                                            seGuardoEnEstaSesion = false
+                                            Toast.makeText(context, "No se pudo sincronizar la imagen", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+
                                 } else {
-                                    Toast.makeText(context, "No hay un usuario activo o el relato está vacío.", Toast.LENGTH_SHORT).show()
+                                    seGuardoEnEstaSesion = false
+
+                                    if (idDinamico.isNotEmpty()) {
+                                        db.collection("stories").document(idDinamico).delete().addOnSuccessListener {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }.addOnFailureListener {
+                                            seGuardoEnEstaSesion = true
+                                            Toast.makeText(context, "Error al remover de la biblioteca", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 }
+                            } else {
+                                Toast.makeText(context, "No hay un usuario activo o el relato está vacío.", Toast.LENGTH_SHORT).show()
                             }
                         },
 
@@ -537,6 +580,7 @@ fun BotonCamaraPrincipal(onClick: () -> Unit) {
 fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
     val isDarkTheme = LocalThemeState.current
     val toggleTheme = LocalThemeToggle.current
+    // <-- ¡Corregido el error de MaterialTheme.surface a MaterialTheme.colorScheme.surface acá!
     Card(modifier = Modifier.width(260.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

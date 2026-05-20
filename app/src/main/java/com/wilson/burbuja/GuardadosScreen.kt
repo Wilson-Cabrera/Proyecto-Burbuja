@@ -14,8 +14,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource // Nuevo para capturar el toque
-import androidx.compose.foundation.interaction.collectIsPressedAsState // Nuevo para saber si se presiona
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -78,6 +78,7 @@ fun GuardadosScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
 
     val pullRefreshState = rememberPullToRefreshState()
+    var cuentoABorrar by remember { mutableStateOf<StoryData?>(null) }
 
     val searchWidth by animateDpAsState(
         targetValue = if (isSearchExpanded) 300.dp else 48.dp,
@@ -91,8 +92,6 @@ fun GuardadosScreen(
                     historia.resultStory.contains(searchText, ignoreCase = true)
         }
     }
-
-    var cuentoABorrar by remember { mutableStateOf<StoryData?>(null) }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -113,17 +112,47 @@ fun GuardadosScreen(
                 .padding(horizontal = 24.dp)
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxSize()
             ) {
-                // --- HEADER ---
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.statusBarsPadding().height(20.dp))
+
+                // --- TOP ACTION BAR FLOTANTE (SIN SALTOS) ---
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.CenterEnd
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
                 ) {
+                    // Título: animación de opacidad simple por hardware (100% a prueba de errores)
+                    val titleAlpha by animateFloatAsState(
+                        targetValue = if (isSearchExpanded) 0f else 1f,
+                        animationSpec = tween(if (isSearchExpanded) 150 else 300),
+                        label = "titleAlpha"
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .graphicsLayer(alpha = titleAlpha)
+                    ) {
+                        Text(
+                            text = "Mis burbujas...",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        Text(
+                            text = "Viven acá...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 13.sp,
+                            color = textColor.copy(alpha = 0.5f)
+                        )
+                    }
+
+                    // Buscador expansible
                     Surface(
                         modifier = Modifier
+                            .align(Alignment.CenterEnd)
                             .width(searchWidth)
                             .height(48.dp)
                             .clickable(enabled = !isSearchExpanded) {
@@ -141,6 +170,7 @@ fun GuardadosScreen(
                             horizontalArrangement = Arrangement.End,
                             modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp)
                         ) {
+                            // Aplicamos el peso directo a la animación sin cajas extra que rompan el scope
                             AnimatedVisibility(
                                 visible = isSearchExpanded,
                                 enter = fadeIn(tween(300, delayMillis = 100)),
@@ -188,10 +218,10 @@ fun GuardadosScreen(
                                         }
                                     }
                                 }
+                            }
 
-                                LaunchedEffect(isSearchExpanded) {
-                                    if (isSearchExpanded) focusRequester.requestFocus()
-                                }
+                            LaunchedEffect(isSearchExpanded) {
+                                if (isSearchExpanded) focusRequester.requestFocus()
                             }
 
                             Box(
@@ -219,34 +249,14 @@ fun GuardadosScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(50.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
+                // --- CONTENIDO DE TARJETAS ---
                 if (listaHistorias.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         EmptyLibraryViewFigma(onNavigateToCreate, textColor, primaryColor)
                     }
                 } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Mis burbujas...",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = textColor
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Viven acá...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 14.sp,
-                            color = textColor.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(bottom = 40.dp)
-                        )
-                    }
-
                     if (historiasFiltradas.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                             NoResultsView(searchText, textColor)
@@ -254,7 +264,7 @@ fun GuardadosScreen(
                     } else {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(bottom = 120.dp),
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 130.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(
@@ -284,7 +294,6 @@ fun GuardadosScreen(
                                         )
 
                                         val modernRed = Color(0xFFD32F2F)
-
                                         val difuminadoGradient = Brush.horizontalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
@@ -438,7 +447,6 @@ fun BurbujaRefreshIndicator(
     }
 }
 
-// --- STORY CARD: CON EFECTO DE REBOTE TÁCTIL (SPRING POP) ---
 @Composable
 fun StoryCard(
     story: StoryData,
@@ -447,21 +455,18 @@ fun StoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Escuchador de interacciones del usuario
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // Animación elástica de escala basada en si está presionado o no
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy, // Rebote intermedio placentero
+            dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
         ),
         label = "cardBounce"
     )
 
-    // Animación de la sombra (se reduce la elevación cuando se hunde)
     val elevation by animateDpAsState(
         targetValue = if (isPressed) 2.dp else 6.dp,
         animationSpec = tween(durationMillis = 100),
@@ -478,7 +483,7 @@ fun StoryCard(
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = null, // Anulamos el ripple gris para que el rebote sea el rey de la UI
+                indication = null,
                 onClick = onClick
             ),
         shape = RoundedCornerShape(24.dp),

@@ -16,7 +16,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -42,25 +44,23 @@ import kotlin.math.sin
 @Composable
 fun ResultScreen(
     storyData: StoryData,
-    nombreUsuario: String,
     isAudioLoading: Boolean,
     isPlaying: Boolean,
     audioAmplitude: Float,
     isAnonymous: Boolean,
+    isSaved: Boolean,
     onPlayAudioClick: () -> Unit,
     onStopAudioClick: () -> Unit,
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit,
-    onLogout: () -> Unit,
+    onNavigateToLibrary: () -> Unit,
     onRealSaveClick: () -> Unit,
     onUpgradeAccountClick: () -> Unit
 ) {
-    val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "W"
-    var isProfileMenuVisible by remember { mutableStateOf(false) }
     var showLoginDialog by rememberSaveable { mutableStateOf(false) }
 
     val blurRadius by animateDpAsState(
-        targetValue = if (isProfileMenuVisible || showLoginDialog) 20.dp else 0.dp,
+        targetValue = if (showLoginDialog) 20.dp else 0.dp,
         animationSpec = tween(300),
         label = "blur_anim"
     )
@@ -92,13 +92,8 @@ fun ResultScreen(
         }
     }
 
-    // SOLUCIÓN AL GLITCH: Eliminamos por completo el LaunchedEffect(isAnonymous) de acá.
-    // Al no alterar el estado de la pantalla en medio de la autenticación, evitamos refundar la UI.
-    // Ahora, MainActivity maneja la transición de forma limpia hacia la biblioteca.
-
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
 
-        // --- 1. FONDO E IMAGEN ---
         Box(modifier = Modifier.fillMaxSize().blur(blurRadius)) {
 
             AsyncImage(
@@ -124,7 +119,6 @@ fun ResultScreen(
                 )
             )
 
-            // --- 2. CONTENIDO SCROLLABLE ---
             Column(
                 modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 28.dp)
             ) {
@@ -170,88 +164,79 @@ fun ResultScreen(
             }
         }
 
-        // --- 3. DOCK INFERIOR ---
         Box(
-            modifier = Modifier.fillMaxWidth().height(160.dp).align(Alignment.BottomCenter)
+            modifier = Modifier.fillMaxWidth().height(120.dp).align(Alignment.BottomCenter)
                 .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, bgColor.copy(alpha = 0.95f), bgColor)))
                 .padding(horizontal = 24.dp).padding(bottom = 30.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = {
-                        if (isAnonymous) {
-                            showLoginDialog = true
-                        } else {
-                            onRealSaveClick()
-                        }
-                    },
-                    modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = onPrimaryColor)
-                ) {
-                    Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Guardar", fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
+
                 Button(
                     onClick = onGenerateAnother,
-                    modifier = Modifier.weight(1.2f).height(56.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.05f)),
                     border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f))
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, tint = primaryColor, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Regenerar", color = primaryColor, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "Regenerar",
+                        color = primaryColor,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 14.sp
+                    )
                 }
-                Spacer(modifier = Modifier.width(64.dp))
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Button(
+                    onClick = onNavigateToLibrary,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = onPrimaryColor
+                    )
+                ) {
+                    Icon(Icons.Default.LibraryBooks, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Biblioteca",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
 
-        // Círculo de Perfil
-        Surface(
-            modifier = Modifier.padding(bottom = 30.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp).clickable { isProfileMenuVisible = !isProfileMenuVisible },
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondary,
-            border = BorderStroke(1.dp, textColor.copy(alpha = 0.2f))
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = letraUsuario, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            }
-        }
-
-        // --- 4. REPRODUCTOR ---
         Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
             UniverseDomeVisualizer(
                 isPlaying = isPlaying,
                 isLoading = isAudioLoading,
                 amplitude = audioAmplitude,
+                isSaved = isSaved,
                 onBackClick = onBackClick,
+                onSaveClick = {
+                    if (isAnonymous) {
+                        showLoginDialog = true
+                    } else {
+                        onRealSaveClick()
+                    }
+                },
                 onClick = { if (!isAudioLoading) { if (isPlaying) onStopAudioClick() else onPlayAudioClick() } }
             )
         }
 
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false })
-        }
-        AnimatedVisibility(
-            visible = isProfileMenuVisible,
-            enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
-            modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)
-        ) {
-            ProfileMenuCard(nombreUsuario = nombreUsuario, onClose = { isProfileMenuVisible = false }, onLogout = onLogout)
-        }
-
-        // --- 5. RENDERIZADO DEL DIÁLOGO ---
         if (showLoginDialog) {
             com.wilson.burbuja.components.LoginRequiredDialog(
                 onDismiss = { showLoginDialog = false },
                 onLoginClick = {
-                    // El diálogo se queda totalmente quieto sosteniendo la escena en lo que
-                    // el sistema procesa Google y MainActivity ejecuta la navegación.
                     onUpgradeAccountClick()
                 }
             )
@@ -259,13 +244,14 @@ fun ResultScreen(
     }
 }
 
-// --- EL REPRODUCTOR "CÚPULA DE SONIDO" ---
 @Composable
 fun UniverseDomeVisualizer(
     isPlaying: Boolean,
     isLoading: Boolean,
     amplitude: Float,
+    isSaved: Boolean,
     onBackClick: () -> Unit,
+    onSaveClick: () -> Unit,
     onClick: () -> Unit
 ) {
     val colorPrimario = MaterialTheme.colorScheme.primary
@@ -325,13 +311,10 @@ fun UniverseDomeVisualizer(
             while (currentX <= w) {
                 var currentY = startY
                 while (currentY <= h) {
-
                     val wave = sin(time * 1.5f + (currentX * 0.005f) + (currentY * 0.005f))
                     val pulse = (wave + 1f) / 2f
-
                     val yProgress = 1f - (currentY / h)
                     val fadeMultiplier = (yProgress * 1.5f).coerceIn(0f, 1f).pow(1.5f)
-
                     val baseAlpha = 0.08f
                     val activeAlpha = (0.4f * smoothAmplitude * pulse)
                     val finalAlpha = (baseAlpha + activeAlpha) * fadeMultiplier
@@ -343,7 +326,6 @@ fun UniverseDomeVisualizer(
                             center = Offset(currentX, currentY)
                         )
                     }
-
                     currentY += spacing
                 }
                 currentX += spacing
@@ -361,6 +343,23 @@ fun UniverseDomeVisualizer(
                 .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = onSurfaceColor)
+        }
+
+        IconButton(
+            onClick = onSaveClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 16.dp, top = 16.dp)
+                .size(44.dp)
+                .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(
+                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                contentDescription = "Guardar",
+                tint = if (isSaved) colorPrimario else onSurfaceColor
+            )
         }
 
         Box(

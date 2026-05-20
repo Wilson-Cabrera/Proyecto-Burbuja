@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -30,72 +31,88 @@ fun NavegacionLiteral(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
+    val bgColor = MaterialTheme.colorScheme.background
 
-    Row(
+    // Usamos un Box contenedor con un degradado sutil para que los textos que pasan por detrás no afecten la lectura de los botones
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        bgColor.copy(alpha = 0.7f),
+                        bgColor
+                    )
+                )
+            )
     ) {
-        // --- BARRA DE NAVEGACIÓN ---
-        Surface(
+        Row(
             modifier = Modifier
-                .weight(1f) // Toma el espacio restante
-                .height(64.dp),
-            shape = RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-            shadowElevation = 6.dp
+                .fillMaxWidth()
+                .navigationBarsPadding() // Asegura que respete los gestos del sistema de Android
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp, top = 20.dp), // Agregamos un padding superior para el degradado
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            // --- BARRA DE NAVEGACIÓN ---
+            Surface(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp), // Padding interno para que los botones no toquen los bordes de la cápsula
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp) // Pequeño espacio entre los dos botones
+                    .weight(1f)
+                    .height(64.dp),
+                shape = RoundedCornerShape(32.dp),
+                // Bajamos sutilmente la opacidad del contenedor (0.88f) para darle la vibra de cristal esmerilado (Glassmorphism)
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                shadowElevation = 8.dp
             ) {
-                // CAMBIO CLAVE: weight(1f) y fillMaxHeight() hace que ocupen exactamente la mitad cada uno
-                ItemNavegacionLiteral(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    icon = Icons.Default.Home,
-                    label = "Inicio",
-                    selected = rutaActual == "inicio",
-                    onClick = { navController.navigate("inicio") { launchSingleTop = true } }
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ItemNavegacionLiteral(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        icon = Icons.Default.Home,
+                        label = "Inicio",
+                        selected = rutaActual == "inicio",
+                        onClick = { navController.navigate("inicio") { launchSingleTop = true } }
+                    )
 
-                ItemNavegacionLiteral(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    icon = Icons.Default.Star,
-                    label = "Guardados",
-                    selected = rutaActual == "guardados",
-                    onClick = { navController.navigate("guardados") { launchSingleTop = true } }
-                )
+                    ItemNavegacionLiteral(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        icon = Icons.Default.Star,
+                        label = "Guardados",
+                        selected = rutaActual == "guardados",
+                        onClick = { navController.navigate("guardados") { launchSingleTop = true } }
+                    )
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-        // --- CÍRCULO DE PERFIL ---
-        Surface(
-            modifier = Modifier
-                .size(64.dp)
-                .clickable { onProfileClick() },
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 6.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = letraUsuario.uppercase(),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            // --- CÍRCULO DE PERFIL ---
+            Surface(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clickable { onProfileClick() },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                shadowElevation = 8.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = letraUsuario.uppercase(),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
 
-// CAMBIO CLAVE: Agregamos el parámetro 'modifier' para poder controlarlo desde el padre
 @Composable
 fun ItemNavegacionLiteral(
     modifier: Modifier = Modifier,
@@ -117,7 +134,6 @@ fun ItemNavegacionLiteral(
     }
 
     Box(
-        // Aplicamos el modifier (que trae el weight 1f) y le damos forma de cápsula interna
         modifier = modifier
             .clip(RoundedCornerShape(100.dp))
             .background(colorFondo)
