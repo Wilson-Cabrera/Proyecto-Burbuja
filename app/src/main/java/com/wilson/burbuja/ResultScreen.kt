@@ -5,7 +5,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -13,14 +15,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -35,88 +38,105 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import kotlin.math.pow
+import kotlin.math.sin
 
 @Composable
 fun ResultScreen(
-    storyData: StoryData, // <--- Ahora lo toma de StoryData.kt
-    nombreUsuario: String,
+    storyData: StoryData,
+    isAudioLoading: Boolean,
+    isPlaying: Boolean,
+    audioAmplitude: Float,
+    isAnonymous: Boolean,
+    isSaved: Boolean,
+    onPlayAudioClick: () -> Unit,
+    onStopAudioClick: () -> Unit,
     onBackClick: () -> Unit,
     onGenerateAnother: () -> Unit,
-    onLogout: () -> Unit
+    onNavigateToLibrary: () -> Unit,
+    onRealSaveClick: () -> Unit,
+    onUpgradeAccountClick: () -> Unit
 ) {
-    val letraUsuario = nombreUsuario.firstOrNull()?.toString()?.uppercase() ?: "W"
-    var isProfileMenuVisible by remember { mutableStateOf(false) }
+    var showLoginDialog by rememberSaveable { mutableStateOf(false) }
+
+    val blurRadius by animateDpAsState(
+        targetValue = if (showLoginDialog) 20.dp else 0.dp,
+        animationSpec = tween(300),
+        label = "blur_anim"
+    )
+
     val scrollState = rememberScrollState()
 
-    // Paleta oficial de Wilson
-    val navyBg = Color(0xFF1F2A37)
-    val celesteIA = Color(0xFF7BCBFF)
-    val violetaRegenerativo = Color(0xFF6A5CFF)
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
     val cuentoCompleto = storyData.resultStory.ifEmpty { "Generando relato..." }
-    var textoMostrado by remember { mutableStateOf("") }
 
-    // Animación de escritura
+    var yaSeEscribio by rememberSaveable { mutableStateOf(false) }
+    var textoMostrado by rememberSaveable { mutableStateOf(if (yaSeEscribio) cuentoCompleto else "") }
+
     LaunchedEffect(cuentoCompleto) {
-        textoMostrado = ""
-        cuentoCompleto.forEachIndexed { index, _ ->
-            textoMostrado = cuentoCompleto.substring(0, index + 1)
-            delay(15)
+        if (cuentoCompleto.isNotEmpty() && cuentoCompleto != "Generando relato...") {
+            if (!yaSeEscribio) {
+                textoMostrado = ""
+                cuentoCompleto.forEachIndexed { index, _ ->
+                    textoMostrado = cuentoCompleto.substring(0, index + 1)
+                    delay(15)
+                }
+                yaSeEscribio = true
+            } else {
+                textoMostrado = cuentoCompleto
+            }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(navyBg)) {
+    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
 
-        // --- 1. FONDO AMBIENTAL ---
-        Box(modifier = Modifier.fillMaxSize().blur(if (isProfileMenuVisible) 20.dp else 0.dp)) {
-            Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
-                drawCircle(
-                    color = violetaRegenerativo.copy(alpha = 0.15f),
-                    radius = size.minDimension / 1.2f,
-                    center = Offset(size.width * 0.9f, size.height * 0.3f)
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize().blur(blurRadius)) {
 
             AsyncImage(
                 model = storyData.photoUri,
                 contentDescription = null,
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.65f),
+                modifier = Modifier.fillMaxWidth().height(600.dp),
                 contentScale = ContentScale.Crop,
-                alpha = 0.5f
+                alpha = 0.65f
             )
 
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.7f), navyBg),
-                        startY = 400f
+                        colors = listOf(
+                            bgColor.copy(alpha = 0.3f),
+                            bgColor.copy(alpha = 0.1f),
+                            bgColor.copy(alpha = 0.9f),
+                            bgColor
+                        ),
+                        startY = 0f,
+                        endY = 1500f
                     )
                 )
             )
 
-            // --- 2. CONTENIDO (Tags + Título + Historia) ---
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 28.dp)
+                modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 28.dp)
             ) {
                 Spacer(modifier = Modifier.height(350.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                ) {
-                    listOf(storyData.genero, storyData.tono, storyData.ambiente).forEach { tag ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
+                    listOf(storyData.genero, storyData.tono, storyData.epoca).forEach { tag ->
                         Surface(
-                            color = violetaRegenerativo.copy(alpha = 0.2f),
+                            color = primaryColor.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(0.5.dp, violetaRegenerativo.copy(alpha = 0.4f))
+                            border = BorderStroke(0.5.dp, primaryColor.copy(alpha = 0.3f))
                         ) {
                             Text(
                                 text = tag.uppercase(),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                fontSize = 10.sp, color = celesteIA, fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                color = primaryColor,
+                                fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
                         }
@@ -124,162 +144,243 @@ fun ResultScreen(
                 }
 
                 Text(
-                    text = "Fragmentos de Realidad",
-                    color = Color.White,
+                    text = storyData.title.ifEmpty { "Fragmentos de Realidad" },
+                    color = textColor,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = InterFont // Asegurate que InterFont sea accesible
+                    lineHeight = 38.sp,
+                    letterSpacing = (-1).sp,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 )
-
-                Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
                     text = textoMostrado,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = textColor.copy(alpha = 0.9f),
                     fontSize = 17.sp,
                     lineHeight = 30.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = InterFont
+                    textAlign = TextAlign.Start
                 )
-
-                Spacer(modifier = Modifier.height(200.dp))
+                Spacer(modifier = Modifier.height(180.dp))
             }
         }
 
-        // --- 3. HEADER (BURBUJA AI) ---
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterStart).background(Color.Black.copy(alpha = 0.3f), CircleShape)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
-            }
-
-            Text(
-                text = "BURBUJA AI",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                letterSpacing = 3.sp,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-
-        // --- 4. DOCK INFERIOR ---
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .align(Alignment.BottomCenter)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, navyBg.copy(alpha = 0.95f), navyBg)
-                    )
-                )
-                .padding(horizontal = 24.dp).padding(bottom = 40.dp),
+            modifier = Modifier.fillMaxWidth().height(120.dp).align(Alignment.BottomCenter)
+                .background(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, bgColor.copy(alpha = 0.95f), bgColor)))
+                .padding(horizontal = 24.dp).padding(bottom = 30.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = { /* Lógica Guardar */ },
-                    modifier = Modifier.weight(1f).height(56.dp).shadow(8.dp, RoundedCornerShape(28.dp)),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = celesteIA, contentColor = navyBg)
-                ) {
-                    Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Guardar", fontWeight = FontWeight.Bold, fontFamily = InterFont)
-                }
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // BOTÓN REGENERAR
                 Button(
                     onClick = onGenerateAnother,
-                    modifier = Modifier.weight(1.2f).height(56.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                    border = BorderStroke(1.dp, celesteIA.copy(alpha = 0.4f))
+                    colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.05f)),
+                    border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.4f))
                 ) {
-                    Icon(Icons.Default.AutoAwesome, null, tint = celesteIA, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.AutoAwesome, null, tint = primaryColor, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Regenerar", color = celesteIA, fontWeight = FontWeight.SemiBold, fontFamily = InterFont)
+                    Text(
+                        text = "Regenerar",
+                        color = primaryColor,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 14.sp
+                    )
                 }
 
-                Spacer(modifier = Modifier.width(64.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Button(
+                    onClick = onNavigateToLibrary,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = onPrimaryColor
+                    )
+                ) {
+                    Icon(Icons.Default.LibraryBooks, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Biblioteca",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
 
-        // --- 5. PERFIL Y MENÚ ---
-        Surface(
-            modifier = Modifier.padding(bottom = 40.dp, end = 24.dp).align(Alignment.BottomEnd).size(56.dp)
-                .clickable { isProfileMenuVisible = !isProfileMenuVisible },
-            shape = CircleShape,
-            color = violetaRegenerativo,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = letraUsuario, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            }
+        Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
+            UniverseDomeVisualizer(
+                isPlaying = isPlaying,
+                isLoading = isAudioLoading,
+                amplitude = audioAmplitude,
+                isSaved = isSaved,
+                onBackClick = onBackClick,
+                onSaveClick = {
+                    if (isAnonymous) {
+                        showLoginDialog = true
+                    } else {
+                        onRealSaveClick()
+                    }
+                },
+                onClick = { if (!isAudioLoading) { if (isPlaying) onStopAudioClick() else onPlayAudioClick() } }
+            )
         }
 
-        AnimatedVisibility(visible = isProfileMenuVisible, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable { isProfileMenuVisible = false })
-        }
-
-        AnimatedVisibility(
-            visible = isProfileMenuVisible,
-            enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
-            modifier = Modifier.padding(bottom = 110.dp, end = 24.dp).align(Alignment.BottomEnd)
-        ) {
-            ProfileMenuCard(
-                nombreUsuario = nombreUsuario,
-                onClose = { isProfileMenuVisible = false },
-                onLogout = onLogout
+        if (showLoginDialog) {
+            com.wilson.burbuja.components.LoginRequiredDialog(
+                onDismiss = { showLoginDialog = false },
+                onLoginClick = {
+                    onUpgradeAccountClick()
+                }
             )
         }
     }
 }
 
-// --- SUBCOMPONENTES ---
-
 @Composable
-fun ProfileMenuCard(nombreUsuario: String, onClose: () -> Unit, onLogout: () -> Unit) {
-    Card(
-        modifier = Modifier.width(260.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
+fun UniverseDomeVisualizer(
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    amplitude: Float,
+    isSaved: Boolean,
+    onBackClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    val colorPrimario = MaterialTheme.colorScheme.primary
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+
+    val smoothAmplitude by animateFloatAsState(
+        targetValue = if (isPlaying) amplitude else 0f,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "amplitude"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "universe_time")
+    val time by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1000f,
+        animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Restart),
+        label = "time"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(280.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(bgColor.copy(alpha = 0.7f), Color.Transparent)
+                )
+            )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Hola, $nombreUsuario", color = Color(0xFF64748B), fontSize = 14.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            val domeCenter = Offset(w / 2f, 0f)
+            val baseRadius = w * 0.45f
+            val expandedRadius = baseRadius + (w * 0.4f * smoothAmplitude)
+            val domeAlpha = 0.05f + (0.18f * smoothAmplitude)
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(colorPrimario.copy(alpha = domeAlpha), Color.Transparent),
+                    center = domeCenter,
+                    radius = expandedRadius
+                ),
+                radius = expandedRadius,
+                center = domeCenter
+            )
+
+            val spacing = 65f
+            val startX = (w % spacing) / 2f
+            val startY = (h % spacing) / 2f
+
+            var currentX = startX
+            while (currentX <= w) {
+                var currentY = startY
+                while (currentY <= h) {
+                    val wave = sin(time * 1.5f + (currentX * 0.005f) + (currentY * 0.005f))
+                    val pulse = (wave + 1f) / 2f
+                    val yProgress = 1f - (currentY / h)
+                    val fadeMultiplier = (yProgress * 1.5f).coerceIn(0f, 1f).pow(1.5f)
+                    val baseAlpha = 0.08f
+                    val activeAlpha = (0.4f * smoothAmplitude * pulse)
+                    val finalAlpha = (baseAlpha + activeAlpha) * fadeMultiplier
+
+                    if (finalAlpha > 0.01f) {
+                        drawCircle(
+                            color = textColor.copy(alpha = finalAlpha),
+                            radius = 2f,
+                            center = Offset(currentX, currentY)
+                        )
+                    }
+                    currentY += spacing
                 }
+                currentX += spacing
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            ProfileMenuItem(Icons.Default.NightsStay, "Modo oscuro") {}
-            ProfileMenuItem(Icons.Default.Share, "Compartir") {}
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Black.copy(alpha = 0.05f))
-            ProfileMenuItem(Icons.AutoMirrored.Filled.ExitToApp, "Cerrar sesión", onLogout)
         }
-    }
-}
 
-@Composable
-fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp)
-    ) {
-        Icon(icon, null, tint = Color(0xFF1E293B), modifier = Modifier.size(22.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(text = text, color = Color(0xFF1E293B), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(start = 16.dp, top = 16.dp)
+                .size(44.dp)
+                .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = onSurfaceColor)
+        }
+
+        IconButton(
+            onClick = onSaveClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 16.dp, top = 16.dp)
+                .size(44.dp)
+                .background(surfaceColor.copy(alpha = 0.6f), CircleShape)
+                .border(1.dp, textColor.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(
+                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                contentDescription = "Guardar",
+                tint = if (isSaved) colorPrimario else onSurfaceColor
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 24.dp)
+                .size(52.dp)
+                .shadow(if (isPlaying) 12.dp else 0.dp, CircleShape, ambientColor = colorPrimario, spotColor = colorPrimario)
+                .background(surfaceColor, CircleShape)
+                .border(1.dp, colorPrimario.copy(alpha = 0.6f), CircleShape)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(color = colorPrimario, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            } else if (!isPlaying) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = colorPrimario, modifier = Modifier.size(26.dp))
+            } else {
+                Icon(Icons.Default.Pause, contentDescription = "Pause", tint = colorPrimario.copy(alpha = 0.8f), modifier = Modifier.size(26.dp))
+            }
+        }
     }
 }

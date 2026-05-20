@@ -1,5 +1,6 @@
 package com.wilson.burbuja
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,7 +21,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -28,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.wilson.burbuja.data.DetonantesProvider
+import kotlinx.coroutines.launch
 
 // --- DEFINICIÓN DE FUENTES ---
 val IBMPlexSans = FontFamily(
@@ -50,28 +56,50 @@ val Inter = FontFamily(
 fun StoryConfigurationScreen(
     navController: NavController,
     photoUri: String,
+    viewModel: StoryViewModel,
     onBackClick: () -> Unit = {}
 ) {
-    // 1. ESTADOS
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // 1. ESTADOS DE SELECCIÓN
     var generoSel by remember { mutableStateOf("Misterio") }
     var narradorSel by remember { mutableStateOf("Primera persona") }
-    var tonoSel by remember { mutableStateOf("Oscuro") }
-    var ambienteSel by remember { mutableStateOf("Noche") }
-    var promptExtra by remember { mutableStateOf("") }
+    var tonoSel by remember { mutableStateOf("Épico") }
+    var epocaSel by remember { mutableStateOf("Actual") }
+    var detonanteSel by remember { mutableStateOf("") }
+
+    // --- ESTADOS DE ANIMACIÓN DEL DADO ---
+    val rotation = remember { Animatable(0f) }
+    var isScaled by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isScaled) 1.2f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale_anim"
+    )
 
     val scrollState = rememberScrollState()
 
+    // DINÁMICO: Variables del tema para esta pantalla
+    val bgColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // FONDO BLUR
+        // FONDO MULTIMEDIA
         AsyncImage(
             model = photoUri,
             contentDescription = null,
-            modifier = Modifier.fillMaxSize().blur(10.dp),
+            modifier = Modifier.fillMaxSize().blur(15.dp),
             contentScale = ContentScale.Crop
         )
 
-        // FILTRO NAVY
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A).copy(alpha = 0.7f)))
+        // DINÁMICO: OVERLAY. Oscuro en Dark Mode, Claro en Light Mode.
+        Box(modifier = Modifier.fillMaxSize().background(bgColor.copy(alpha = 0.85f)))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -82,6 +110,7 @@ fun StoryConfigurationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .imePadding()
                     .padding(horizontal = 24.dp)
                     .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -94,7 +123,7 @@ fun StoryConfigurationScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Volver",
-                        tint = Color.White,
+                        tint = textColor, // DINÁMICO
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -104,7 +133,7 @@ fun StoryConfigurationScreen(
                 // TÍTULOS
                 Text(
                     text = "Dale forma a tu cuento",
-                    color = Color.White,
+                    color = textColor, // DINÁMICO
                     fontSize = 20.sp,
                     fontFamily = IBMPlexSans,
                     fontWeight = FontWeight.Bold,
@@ -114,7 +143,7 @@ fun StoryConfigurationScreen(
 
                 Text(
                     text = "Elegí como querés que sea",
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = textColor.copy(alpha = 0.6f), // DINÁMICO
                     fontSize = 13.sp,
                     fontFamily = Inter,
                     fontWeight = FontWeight.Light,
@@ -130,167 +159,191 @@ fun StoryConfigurationScreen(
                     contentDescription = "Foto miniatura",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(135.dp)
-                        .shadow(12.dp, RoundedCornerShape(24.dp), spotColor = Color.Black.copy(alpha = 0.9f))
-                        .clip(RoundedCornerShape(24.dp)),
+                        .height(150.dp)
+                        // DINÁMICO: Sombra con el color primario
+                        .shadow(15.dp, RoundedCornerShape(28.dp), spotColor = primaryColor)
+                        .clip(RoundedCornerShape(28.dp)),
                     contentScale = ContentScale.Crop
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // --- CATEGORÍAS (Género, Narrador, Tono, Ambiente) ---
-                CategorySection(title = "Género")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 5
-                ) { index ->
+                // --- SECCIÓN 1: GÉNERO ---
+                CategoryHeader(title = "Género")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
                     val opciones = listOf("Aventura", "Misterio", "Fantasía", "Terror", "Ciencia ficción")
                     BurbujaChip(text = opciones[index], isSelected = generoSel == opciones[index], onClick = { generoSel = opciones[index] })
                 }
 
-                CategorySection(title = "Narrador")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 3
-                ) { index ->
-                    val opciones = listOf("Primera persona", "Tercera persona", "Omnisciente")
+                // --- SECCIÓN 2: NARRADOR ---
+                CategoryHeader(title = "Narrador")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 3) { index ->
+                    val opciones = listOf("Primera persona", "Segunda persona", "Omnisciente")
                     BurbujaChip(text = opciones[index], isSelected = narradorSel == opciones[index], onClick = { narradorSel = opciones[index] })
                 }
 
-                CategorySection(title = "Tono")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 3
-                ) { index ->
-                    val opciones = listOf("Divertido", "Oscuro", "Épico")
+                // --- SECCIÓN 3: TONO ---
+                CategoryHeader(title = "Tono")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
+                    val opciones = listOf("Épico", "Mágico", "Humorístico", "Nostálgico", "Distópico")
                     BurbujaChip(text = opciones[index], isSelected = tonoSel == opciones[index], onClick = { tonoSel = opciones[index] })
                 }
 
-                CategorySection(title = "Ambiente")
-                ContextualFlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemCount = 4
-                ) { index ->
-                    val opciones = listOf("Día", "Noche", "Futuro", "Antiguo")
-                    BurbujaChip(text = opciones[index], isSelected = ambienteSel == opciones[index], onClick = { ambienteSel = opciones[index] })
+                // --- SECCIÓN 4: ÉPOCA ---
+                CategoryHeader(title = "Época")
+                ContextualFlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), itemCount = 5) { index ->
+                    val opciones = listOf("Prehistoria", "Medieval", "Actual", "Futurista", "Universo alternativo")
+                    BurbujaChip(text = opciones[index], isSelected = epocaSel == opciones[index], onClick = { epocaSel = opciones[index] })
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // AGREGAR ALGO EXTRA
+                // --- SECCIÓN 5: EL DETONANTE (INPUT ANIMADO) ---
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(text = "Agrega algo a tu historia...", color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold)
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = Color(0xFF74A9D2).copy(alpha = 0.5f))
+                    Text(text = "El Detonante", color = textColor, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold) // DINÁMICO
+                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 16.dp), thickness = 1.dp, color = primaryColor.copy(alpha = 0.5f)) // DINÁMICO
                 }
 
                 OutlinedTextField(
-                    value = promptExtra,
-                    onValueChange = { promptExtra = it },
+                    value = detonanteSel,
+                    onValueChange = { detonanteSel = it },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    placeholder = { Text(text = "Por ejemplo: que tenga un final inesperado...", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp, fontFamily = Inter) },
+                    placeholder = {
+                        Text(
+                            text = "Ej:\"Un portal se abre...\", \"Una sombra aparece...\"",
+                            color = textColor.copy(alpha = 0.4f), // DINÁMICO
+                            fontSize = 12.sp,
+                            fontFamily = Inter
+                        )
+                    },
                     leadingIcon = {
-                        Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = Color(0xFF7B61FF)) {
+                        // DINÁMICO: Círculo del ícono de agregar usa el color secundario
+                        Surface(modifier = Modifier.padding(start = 8.dp).size(28.dp), shape = CircleShape, color = secondaryColor) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(18.dp))
                             }
                         }
                     },
+                    // --- BOTÓN DEL DADO ANIMADO ---
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                detonanteSel = DetonantesProvider.obtenerAleatorio()
+                                coroutineScope.launch {
+                                    isScaled = true
+                                    rotation.animateTo(
+                                        targetValue = rotation.value + 360f,
+                                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                    )
+                                    isScaled = false
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Casino,
+                                contentDescription = "Generar azar",
+                                tint = primaryColor, // DINÁMICO
+                                modifier = Modifier.graphicsLayer {
+                                    rotationZ = rotation.value
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                            )
+                        }
+                    },
                     shape = RoundedCornerShape(30.dp),
+                    // DINÁMICO: Colores del TextField atados al tema
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color(0xFF7B61FF),
-                        focusedBorderColor = Color(0xFF74A9D2),
-                        unfocusedBorderColor = Color(0xFF74A9D2).copy(alpha = 0.8f),
-                        focusedContainerColor = Color(0xFF74A9D2).copy(alpha = 0.1f)
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor,
+                        cursorColor = secondaryColor,
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = primaryColor.copy(alpha = 0.5f),
+                        focusedContainerColor = primaryColor.copy(alpha = 0.05f)
                     )
                 )
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // --- BOTÓN GENERAR CON INTEGRACIÓN DE DATOS ---
+                // --- BOTÓN GENERAR ---
                 Button(
                     onClick = {
                         val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
 
-                        // 1. Creamos el objeto de datos con lo seleccionado
                         val dataParaIA = StoryData(
                             photoUri = photoUri,
                             genero = generoSel,
                             narrador = narradorSel,
                             tono = tonoSel,
-                            ambiente = ambienteSel,
-                            extra = promptExtra
+                            epoca = epocaSel,
+                            detonante = detonanteSel
                         )
 
-                        // 2. LO GUARDAMOS EN EL HISTORIAL DE NAVEGACIÓN (Clave para que ResultScreen lo vea)
                         navController.currentBackStackEntry?.savedStateHandle?.set("storyData", dataParaIA)
-
-                        println("🐐 Cabra dice: Mochila guardada y enviando a Loading -> $dataParaIA")
-
-                        // 3. Navegamos a la pantalla de carga
+                        viewModel.generarHistoria(context, dataParaIA)
                         navController.navigate("loading/$encodedUri")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .shadow(8.dp, RoundedCornerShape(28.dp)),
-                    shape = RoundedCornerShape(28.dp),
+                        .height(60.dp)
+                        .shadow(12.dp, RoundedCornerShape(30.dp)),
+                    shape = RoundedCornerShape(30.dp),
+                    // DINÁMICO: Usamos el primario para el botón
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF74A9D2),
-                        contentColor = Color.White
+                        containerColor = primaryColor,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Generar",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontFamily = Inter,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = "Generar", fontSize = 18.sp, fontFamily = Inter, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                 }
 
-                Spacer(modifier = Modifier.height(50.dp))
+                Spacer(modifier = Modifier.height(60.dp))
             }
         }
     }
 }
 
-// --- COMPONENTES AUXILIARES ---
+// --- CATEGORY HEADER Y BURBUJA CHIP ---
 @Composable
-fun CategorySection(title: String) {
-    Spacer(modifier = Modifier.height(24.dp))
+fun CategoryHeader(title: String) {
+    Spacer(modifier = Modifier.height(28.dp))
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = title, color = Color.White, fontSize = 18.sp, fontFamily = IBMPlexSans, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.Start))
-        HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp), thickness = 1.dp, color = Color(0xFF7ACAFF).copy(alpha = 0.7f))
+        Text(
+            text = title.uppercase(),
+            color = MaterialTheme.colorScheme.onBackground, // DINÁMICO
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 1.5.sp,
+            fontFamily = Inter
+        )
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            thickness = 0.9.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) // DINÁMICO
+        )
     }
 }
 
 @Composable
 fun BurbujaChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    // DINÁMICO: Lógica de colores según el estado de selección y el tema
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+    val borderColor = if (isSelected) null else BorderStroke(0.9.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface
+
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) Color(0xFF7B61FF) else Color(0xFF1F2A37).copy(alpha = 0.4f),
-        border = if (isSelected) null else BorderStroke(1.dp, Color(0xFF74A9D2).copy(alpha = 0.9f)),
+        shape = RoundedCornerShape(16.dp),
+        color = bgColor,
+        border = borderColor,
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
-        Text(text = text, color = if (isSelected) Color(0xFF0F172A) else Color.White, fontSize = 14.sp, fontFamily = Inter, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text(
+            text = text,
+            color = textColor,
+            fontSize = 13.sp,
+            fontFamily = Inter,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
     }
 }

@@ -18,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset // Faltaba esta
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -46,8 +46,15 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
         mostrarContenido = true
     }
 
+    // DINÁMICO: Leemos los colores principales del tema actual
+    val colorFondo = MaterialTheme.colorScheme.background
+    val colorSuperficie = MaterialTheme.colorScheme.surface
+    val colorTexto = MaterialTheme.colorScheme.onBackground
+    val colorPrimario = MaterialTheme.colorScheme.primary
+
+    // DINÁMICO: Un gradiente suave entre la superficie y el fondo para dar profundidad
     val fondoGradient = Brush.radialGradient(
-        colors = listOf(Color(0xFF2D3B4D), Color(0xFF111827)),
+        colors = listOf(colorSuperficie, colorFondo),
         radius = 2000f
     )
 
@@ -64,10 +71,13 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 30.dp, vertical = 60.dp)
-                    .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = Color(0xFF7ACAFF))
+                    // DINÁMICO: La sombra ahora brilla con el color primario (Celeste IA o Violeta)
+                    .shadow(20.dp, RoundedCornerShape(24.dp), spotColor = colorPrimario)
                     .clip(RoundedCornerShape(24.dp))
+                    // La base de la foto queda en negro para mantener el contraste visual tipo "revelado"
                     .background(Color.Black)
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), RoundedCornerShape(24.dp))
+                    // DINÁMICO: Borde adaptado al tema
+                    .border(BorderStroke(1.dp, colorTexto.copy(alpha = 0.1f)), RoundedCornerShape(24.dp))
             ) {
                 if (mostrarContenido) {
                     AsyncImage(
@@ -81,7 +91,8 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
 
             Text(
                 text = "¿ES ESTE EL OBJETO?",
-                color = Color.White.copy(alpha = 0.6f),
+                // DINÁMICO: Texto adaptado al fondo
+                color = colorTexto.copy(alpha = 0.6f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Light,
                 letterSpacing = 4.sp,
@@ -94,9 +105,10 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
                     .fillMaxWidth()
                     .padding(bottom = 50.dp, start = 30.dp, end = 30.dp)
                     .height(90.dp),
-                color = Color.White.copy(alpha = 0.05f),
+                // DINÁMICO: Contenedor con el color de superficie
+                color = colorSuperficie.copy(alpha = 0.8f),
                 shape = RoundedCornerShape(45.dp),
-                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                border = BorderStroke(0.5.dp, colorTexto.copy(alpha = 0.1f))
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -114,31 +126,33 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
                         },
                         modifier = Modifier
                             .size(54.dp)
-                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), CircleShape)
+                            // DINÁMICO: Fondo y borde dinámicos
+                            .background(colorTexto.copy(alpha = 0.08f), CircleShape)
+                            .border(BorderStroke(1.dp, colorTexto.copy(alpha = 0.1f)), CircleShape)
                     ) {
-                        Icon(Icons.Default.Close, "Descartar", tint = Color.White)
+                        // DINÁMICO: Ícono en color que contrasta
+                        Icon(Icons.Default.Close, "Descartar", tint = colorTexto)
                     }
 
                     // BOTÓN CONFIRMAR
-// BOTÓN CONFIRMAR
                     Button(
                         onClick = {
-                            // 1. Codificamos la URI para que sea segura para la navegación
                             val encodedUri = java.net.URLEncoder.encode(photoUri, java.nio.charset.StandardCharsets.UTF_8.toString())
-
-                            // 2. Navegamos a la ruta que definimos en el MainActivity
                             navController.navigate("story_configuration/$encodedUri")
                         },
                         modifier = Modifier
                             .height(54.dp)
                             .width(130.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7ACAFF)),
+                        // DINÁMICO: Colores del botón atados al Primary y OnPrimary
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorPrimario,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(27.dp)
                     ) {
-                        Icon(Icons.Default.Check, null, tint = Color(0xFF111827))
+                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary)
                         Spacer(Modifier.width(8.dp))
-                        Text("LISTO", color = Color(0xFF111827), fontWeight = FontWeight.Bold)
+                        Text("LISTO", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                     }
 
                 }
@@ -146,4 +160,3 @@ fun PreviewScreen(navController: NavController, photoUri: String) {
         }
     }
 }
-

@@ -1,4 +1,4 @@
-package com.wilson.burbuja
+package com.wilson.burbuja.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -30,100 +31,131 @@ fun NavegacionLiteral(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
+    val bgColor = MaterialTheme.colorScheme.background
 
-    Row(
+    // Usamos un Box contenedor con un degradado sutil para que los textos que pasan por detrás no afecten la lectura de los botones
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        bgColor.copy(alpha = 0.7f),
+                        bgColor
+                    )
+                )
+            )
     ) {
-        // BARRA DE NAVEGACIÓN (Ahora con 2 ítems)
-        Surface(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .height(56.dp),
-            shape = RoundedCornerShape(32.dp),
-            color = Color(0xFF6E88A6).copy(alpha = 0.9f),
-            shadowElevation = 0.dp
+                .fillMaxWidth()
+                .navigationBarsPadding() // Asegura que respete los gestos del sistema de Android
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp, top = 20.dp), // Agregamos un padding superior para el degradado
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly // Distribuye los 2 iconos perfecto
+            // --- BARRA DE NAVEGACIÓN ---
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(64.dp),
+                shape = RoundedCornerShape(32.dp),
+                // Bajamos sutilmente la opacidad del contenedor (0.88f) para darle la vibra de cristal esmerilado (Glassmorphism)
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                shadowElevation = 8.dp
             ) {
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.Home,
-                    label = "Inicio",
-                    selected = rutaActual == "inicio",
-                    onClick = { navController.navigate("inicio") }
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ItemNavegacionLiteral(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        icon = Icons.Default.Home,
+                        label = "Inicio",
+                        selected = rutaActual == "inicio",
+                        onClick = { navController.navigate("inicio") { launchSingleTop = true } }
+                    )
 
-                ItemNavegacionLiteral(
-                    icon = Icons.Default.Star,
-                    label = "Guardados",
-                    selected = rutaActual == "guardados",
-                    onClick = { navController.navigate("guardados") }
-                )
+                    ItemNavegacionLiteral(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        icon = Icons.Default.Star,
+                        label = "Guardados",
+                        selected = rutaActual == "guardados",
+                        onClick = { navController.navigate("guardados") { launchSingleTop = true } }
+                    )
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-        // CÍRCULO DE PERFIL (Mantenemos tu diseño original)
-        Surface(
-            modifier = Modifier
-                .size(56.dp)
-                .clickable { onProfileClick() },
-            shape = CircleShape,
-            color = Color(0xFF6E88A6),
-            shadowElevation = 4.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = letraUsuario.uppercase(),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            // --- CÍRCULO DE PERFIL ---
+            Surface(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clickable { onProfileClick() },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                shadowElevation = 8.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = letraUsuario.uppercase(),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun ItemNavegacionLiteral(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val colorContenido = if (selected) Color(0xFF7ACAFF) else Color.White
-
-    val modifierSeleccionado = if (selected) {
-        Modifier
-            .clip(CircleShape)
-            .background(Color(0xFF7ACAFF).copy(alpha = 0.15f))
-            .padding(horizontal = 20.dp, vertical = 12.dp) // Un poco más de aire al ser solo 2
+fun ItemNavegacionLiteral(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val colorContenido = if (selected) {
+        MaterialTheme.colorScheme.primary
     } else {
-        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    }
+
+    val colorFondo = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+    } else {
+        Color.Transparent
     }
 
     Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .clickable { onClick() }
-            .then(modifierSeleccionado),
+        modifier = modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(colorFondo)
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = colorContenido,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
                 color = colorContenido,
-                fontSize = 14.sp, // Aumenté un toque el tamaño para que llene mejor
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                fontSize = 14.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1
             )
         }
